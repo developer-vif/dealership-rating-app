@@ -1,0 +1,558 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Write a Review - DealerRate</title>
+    <link rel="stylesheet" href="style.css">
+    <style>
+        .form-container {
+            max-width: 800px;
+            margin: 2rem auto;
+            background: white;
+            padding: 2rem;
+            border-radius: 8px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        
+        .dealership-context {
+            background: #f8f9fa;
+            padding: 1rem;
+            border-radius: 4px;
+            margin-bottom: 2rem;
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+        
+        .form-section {
+            margin-bottom: 2rem;
+            padding-bottom: 2rem;
+            border-bottom: 1px solid #eee;
+        }
+        
+        .form-section:last-child {
+            border-bottom: none;
+            margin-bottom: 0;
+        }
+        
+        .form-section h3 {
+            color: #2c3e50;
+            margin-bottom: 1rem;
+        }
+        
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+            color: #2c3e50;
+        }
+        
+        .required {
+            color: #e74c3c;
+        }
+        
+        .form-control {
+            width: 100%;
+            padding: 0.75rem;
+            border: 2px solid #ddd;
+            border-radius: 4px;
+            font-size: 1rem;
+            transition: border-color 0.3s;
+        }
+        
+        .form-control:focus {
+            outline: none;
+            border-color: #3498db;
+        }
+        
+        .form-control.error {
+            border-color: #e74c3c;
+        }
+        
+        textarea.form-control {
+            resize: vertical;
+            min-height: 120px;
+        }
+        
+        .duration-rating {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+            gap: 0.75rem;
+            margin-bottom: 0.5rem;
+        }
+        
+        .duration-option {
+            position: relative;
+        }
+        
+        .duration-option input {
+            display: none;
+        }
+        
+        .duration-option label {
+            display: block;
+            padding: 0.75rem;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s;
+            background: white;
+            font-weight: 500;
+        }
+        
+        .duration-option input:checked + label {
+            border-color: #3498db;
+            background: #3498db;
+            color: white;
+        }
+        
+        .duration-option label:hover {
+            border-color: #3498db;
+            transform: translateY(-1px);
+        }
+        
+        .duration-description {
+            font-size: 0.8rem;
+            color: #7f8c8d;
+            margin-top: 0.25rem;
+        }
+        
+        .rating-indicator {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-top: 1rem;
+            padding: 1rem;
+            background: #f8f9fa;
+            border-radius: 8px;
+        }
+        
+        .rating-indicator.hidden {
+            display: none;
+        }
+        
+        .calculated-rating {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .rating-stars {
+            color: #f39c12;
+            font-size: 1.2rem;
+        }
+        
+        .rating-text {
+            font-weight: 500;
+            color: #2c3e50;
+        }
+        
+        .rating-description {
+            font-size: 0.9rem;
+            color: #7f8c8d;
+            margin-top: 0.5rem;
+        }
+        
+        .checkbox-group {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 0.5rem;
+            margin-top: 0.5rem;
+        }
+        
+        .checkbox-item {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .checkbox-item input {
+            margin: 0;
+        }
+        
+        .photo-upload {
+            border: 2px dashed #ddd;
+            border-radius: 4px;
+            padding: 2rem;
+            text-align: center;
+            transition: border-color 0.3s;
+            cursor: pointer;
+        }
+        
+        .photo-upload:hover {
+            border-color: #3498db;
+        }
+        
+        .photo-upload.dragover {
+            border-color: #3498db;
+            background: #f8f9fa;
+        }
+        
+        .photo-preview {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+        
+        .photo-item {
+            position: relative;
+            background: #f8f9fa;
+            border-radius: 4px;
+            padding: 0.5rem;
+            text-align: center;
+        }
+        
+        .photo-item img {
+            width: 100%;
+            height: 80px;
+            object-fit: cover;
+            border-radius: 4px;
+        }
+        
+        .photo-remove {
+            position: absolute;
+            top: -5px;
+            right: -5px;
+            background: #e74c3c;
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            cursor: pointer;
+            font-size: 0.8rem;
+        }
+        
+        .form-actions {
+            display: flex;
+            gap: 1rem;
+            justify-content: flex-end;
+            margin-top: 2rem;
+            padding-top: 2rem;
+            border-top: 1px solid #eee;
+        }
+        
+        .help-text {
+            font-size: 0.9rem;
+            color: #7f8c8d;
+            margin-top: 0.5rem;
+        }
+        
+        .character-count {
+            text-align: right;
+            font-size: 0.9rem;
+            color: #7f8c8d;
+            margin-top: 0.25rem;
+        }
+        
+        .error-message {
+            color: #e74c3c;
+            font-size: 0.9rem;
+            margin-top: 0.25rem;
+        }
+        
+        @media (max-width: 768px) {
+            .form-container {
+                margin: 1rem;
+                padding: 1rem;
+            }
+            
+            .dealership-context {
+                flex-direction: column;
+                text-align: center;
+            }
+            
+            .form-actions {
+                flex-direction: column;
+            }
+            
+            .checkbox-group {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <nav class="container">
+            <div class="logo">DealerRate</div>
+            <ul class="nav-links">
+                <li><a href="index.html">Home</a></li>
+                <li><a href="dealerships.html">Browse Dealerships</a></li>
+                <li><a href="#" onclick="alert('Login feature - wireframe only')">Login</a></li>
+            </ul>
+        </nav>
+    </header>
+
+    <main class="container">
+        <nav style="margin: 1rem 0; color: #7f8c8d;">
+            <a href="index.html" style="color: #7f8c8d;">Home</a> → 
+            <a href="dealership-detail.html" style="color: #7f8c8d;">Sunset Toyota</a> → 
+            <span>Write Review</span>
+        </nav>
+
+        <div class="form-container">
+            <h1>Write a Review</h1>
+            
+            <div class="dealership-context">
+                <div>
+                    <h3 style="margin: 0;">Sunset Toyota</h3>
+                    <div style="color: #7f8c8d;">📍 1234 Sunset Blvd, Los Angeles, CA 90028</div>
+                    <div class="rating" style="margin-top: 0.5rem;">
+                        <span class="stars">★★★★★</span>
+                        <span class="rating-number">4.8</span>
+                        <span class="review-count">(324 reviews)</span>
+                    </div>
+                </div>
+                <a href="dealership-detail.html" class="btn btn-secondary">View Dealership</a>
+            </div>
+
+            <form onsubmit="event.preventDefault(); alert('Review submission - wireframe only');">
+                <div class="form-section">
+                    <h3>Document Processing Times <span class="required">*</span></h3>
+                    <p style="margin-bottom: 1.5rem; color: #7f8c8d;">Please indicate how long it took to receive these important documents from the dealership. This helps other buyers know what to expect.</p>
+                    
+                    <div class="form-group">
+                        <label><strong>Official Receipt & Certificate of Registration Release Time</strong> <span class="required">*</span></label>
+                        <div class="duration-rating">
+                            <div class="duration-option">
+                                <input type="radio" id="receipt-same-day" name="receipt-time" value="same-day" onchange="calculateRating()">
+                                <label for="receipt-same-day">
+                                    Same Day
+                                    <div class="duration-description">Within hours</div>
+                                </label>
+                            </div>
+                            <div class="duration-option">
+                                <input type="radio" id="receipt-1week" name="receipt-time" value="1-week" onchange="calculateRating()">
+                                <label for="receipt-1week">
+                                    < 1 Week
+                                    <div class="duration-description">1-7 days</div>
+                                </label>
+                            </div>
+                            <div class="duration-option">
+                                <input type="radio" id="receipt-2weeks" name="receipt-time" value="2-weeks" onchange="calculateRating()">
+                                <label for="receipt-2weeks">
+                                    < 2 Weeks
+                                    <div class="duration-description">8-14 days</div>
+                                </label>
+                            </div>
+                            <div class="duration-option">
+                                <input type="radio" id="receipt-1month" name="receipt-time" value="1-month" onchange="calculateRating()">
+                                <label for="receipt-1month">
+                                    < 1 Month
+                                    <div class="duration-description">15-30 days</div>
+                                </label>
+                            </div>
+                            <div class="duration-option">
+                                <input type="radio" id="receipt-2months" name="receipt-time" value="2-months" onchange="calculateRating()">
+                                <label for="receipt-2months">
+                                    < 2 Months
+                                    <div class="duration-description">31-60 days</div>
+                                </label>
+                            </div>
+                            <div class="duration-option">
+                                <input type="radio" id="receipt-longer" name="receipt-time" value="longer" onchange="calculateRating()">
+                                <label for="receipt-longer">
+                                    > 2 Months
+                                    <div class="duration-description">60+ days</div>
+                                </label>
+                            </div>
+                        </div>
+                        <div class="help-text">Official receipt and certificate of registration needed for insurance and legal ownership.</div>
+                    </div>
+
+                    <div class="form-group">
+                        <label><strong>Registration Plates Release Time</strong> <span class="required">*</span></label>
+                        <div class="duration-rating">
+                            <div class="duration-option">
+                                <input type="radio" id="plates-same-day" name="plates-time" value="same-day" onchange="calculateRating()">
+                                <label for="plates-same-day">
+                                    Same Day
+                                    <div class="duration-description">Within hours</div>
+                                </label>
+                            </div>
+                            <div class="duration-option">
+                                <input type="radio" id="plates-1week" name="plates-time" value="1-week" onchange="calculateRating()">
+                                <label for="plates-1week">
+                                    < 1 Week
+                                    <div class="duration-description">1-7 days</div>
+                                </label>
+                            </div>
+                            <div class="duration-option">
+                                <input type="radio" id="plates-2weeks" name="plates-time" value="2-weeks" onchange="calculateRating()">
+                                <label for="plates-2weeks">
+                                    < 2 Weeks
+                                    <div class="duration-description">8-14 days</div>
+                                </label>
+                            </div>
+                            <div class="duration-option">
+                                <input type="radio" id="plates-1month" name="plates-time" value="1-month" onchange="calculateRating()">
+                                <label for="plates-1month">
+                                    < 1 Month
+                                    <div class="duration-description">15-30 days</div>
+                                </label>
+                            </div>
+                            <div class="duration-option">
+                                <input type="radio" id="plates-2months" name="plates-time" value="2-months" onchange="calculateRating()">
+                                <label for="plates-2months">
+                                    < 2 Months
+                                    <div class="duration-description">31-60 days</div>
+                                </label>
+                            </div>
+                            <div class="duration-option">
+                                <input type="radio" id="plates-longer" name="plates-time" value="longer" onchange="calculateRating()">
+                                <label for="plates-longer">
+                                    > 2 Months
+                                    <div class="duration-description">60+ days</div>
+                                </label>
+                            </div>
+                        </div>
+                        <div class="help-text">License plates are required to legally drive your vehicle on public roads.</div>
+                    </div>
+
+                    <div id="rating-indicator" class="rating-indicator hidden">
+                        <div>
+                            <strong>Calculated Rating:</strong>
+                            <div style="color: #7f8c8d; font-size: 0.9rem; margin-top: 0.25rem;">Based on document processing efficiency</div>
+                        </div>
+                        <div class="calculated-rating">
+                            <span id="rating-stars" class="rating-stars"></span>
+                            <span id="rating-text" class="rating-text"></span>
+                        </div>
+                    </div>
+                </div>
+
+
+                <div class="form-section">
+                    <h3>Your Experience <span class="required">*</span></h3>
+                    <div class="form-group">
+                        <label for="review-text">Tell us about your experience</label>
+                        <textarea id="review-text" class="form-control" placeholder="Share details about your experience with this dealership. What went well? What could be improved? This helps other customers make informed decisions." maxlength="2000"></textarea>
+                        <div class="character-count">0/2000 characters</div>
+                        <div class="help-text">Minimum 50 characters. Be specific and honest to help other customers.</div>
+                    </div>
+                </div>
+
+
+
+
+
+                <div class="form-section">
+                    <h3>Review Guidelines</h3>
+                    <div style="background: #f8f9fa; padding: 1rem; border-radius: 4px; font-size: 0.9rem; color: #2c3e50;">
+                        <ul style="margin: 0; padding-left: 1.5rem;">
+                            <li>Be honest and constructive in your feedback</li>
+                            <li>Focus on your experience with the dealership</li>
+                            <li>Don't include personal information of staff or other customers</li>
+                            <li>Avoid profanity or inappropriate language</li>
+                            <li>Don't post fake reviews or reviews for competitors</li>
+                        </ul>
+                    </div>
+                    
+                    <div class="checkbox-item" style="margin-top: 1rem;">
+                        <input type="checkbox" id="terms" required>
+                        <label for="terms">I agree to the <a href="#" onclick="alert('Terms - wireframe only')">Terms of Service</a> and <a href="#" onclick="alert('Guidelines - wireframe only')">Review Guidelines</a> <span class="required">*</span></label>
+                    </div>
+                </div>
+
+                <div class="form-actions">
+                    <a href="dealership-detail.html" class="btn btn-secondary">Cancel</a>
+                    <button type="submit" class="btn btn-primary">Submit Review</button>
+                </div>
+            </form>
+        </div>
+    </main>
+
+    <footer>
+        <div class="container">
+            <p>&copy; 2024 DealerRate. Help car buyers make informed decisions.</p>
+        </div>
+    </footer>
+
+    <script>
+        // Rating calculation based on processing times
+        function calculateRating() {
+            const receiptTime = document.querySelector('input[name="receipt-time"]:checked');
+            const platesTime = document.querySelector('input[name="plates-time"]:checked');
+            
+            if (!receiptTime || !platesTime) {
+                document.getElementById('rating-indicator').classList.add('hidden');
+                return;
+            }
+            
+            // Scoring system: faster = higher score
+            const timeScores = {
+                'same-day': 5,
+                '1-week': 4,
+                '2-weeks': 3,
+                '1-month': 2,
+                '2-months': 1,
+                'longer': 0
+            };
+            
+            const receiptScore = timeScores[receiptTime.value] || 0;
+            const platesScore = timeScores[platesTime.value] || 0;
+            
+            // Calculate average and convert to 5-star rating
+            const averageScore = (receiptScore + platesScore) / 2;
+            const starRating = Math.round(averageScore);
+            
+            // Generate star display
+            let stars = '';
+            for (let i = 1; i <= 5; i++) {
+                stars += i <= starRating ? '★' : '☆';
+            }
+            
+            // Rating descriptions
+            const ratingTexts = {
+                5: 'Excellent - Very Fast Processing',
+                4: 'Good - Fast Processing', 
+                3: 'Average - Standard Processing',
+                2: 'Below Average - Slow Processing',
+                1: 'Poor - Very Slow Processing',
+                0: 'Unacceptable - Extremely Slow'
+            };
+            
+            // Update display
+            document.getElementById('rating-stars').textContent = stars;
+            document.getElementById('rating-text').textContent = `${starRating}/5 - ${ratingTexts[starRating]}`;
+            document.getElementById('rating-indicator').classList.remove('hidden');
+        }
+        
+        // Simple wireframe interactions
+        document.addEventListener('DOMContentLoaded', function() {
+            // Star rating interaction
+            const starRatings = document.querySelectorAll('.star-rating');
+            starRatings.forEach(rating => {
+                const stars = rating.querySelectorAll('label');
+                stars.forEach(star => {
+                    star.addEventListener('click', function() {
+                        // This would handle star selection in a real app
+                        console.log('Star clicked - wireframe only');
+                    });
+                });
+            });
+
+            // Character counter
+            const textInputs = document.querySelectorAll('input[maxlength], textarea[maxlength]');
+            textInputs.forEach(input => {
+                const counter = input.parentNode.querySelector('.character-count');
+                if (counter) {
+                    input.addEventListener('input', function() {
+                        const current = this.value.length;
+                        const max = this.getAttribute('maxlength');
+                        counter.textContent = `${current}/${max} characters`;
+                    });
+                }
+            });
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DealerRate - Find & Rate Car Dealerships</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://maps.googleapis.com/maps/api/js?key=YOUR_API_KEY&libraries=places" defer></script>
+</head>
+<body>
+    <header>
+        <nav class="container">
+            <div class="logo">DealerRate</div>
+            <ul class="nav-links">
+                <li><a href="index.html">Home</a></li>
+                <li><a href="dealerships.html">Browse Dealerships</a></li>
+                <li><a href="#" onclick="alert('Login feature - wireframe only')">Login</a></li>
+            </ul>
+        </nav>
+    </header>
+
+    <section class="search-section">
+        <div class="container">
+            <h1>Find the Best Car Dealerships Near You</h1>
+            <p>Read reviews, compare ratings, and share your dealership experiences</p>
+            <form class="search-form" onsubmit="event.preventDefault(); alert('Search functionality - wireframe only');">
+                <input type="text" class="search-input" placeholder="Enter city, dealership name, or car brand..." value="Los Angeles">
+                <button type="submit" class="btn btn-primary">Search Dealerships</button>
+                <a href="dealerships.html" class="btn btn-secondary">Browse All</a>
+            </form>
+        </div>
+    </section>
+
+    <main class="container">
+        <section class="section">
+            <div class="location-controls">
+                <h2>Dealerships Near You</h2>
+                <div class="controls-row">
+                    <div class="location-info">
+                        <span class="location-icon">📍</span>
+                        <span id="current-location">Los Angeles, CA</span>
+                        <button class="btn btn-secondary" onclick="alert('Change location - wireframe only')" style="margin-left: 1rem; padding: 0.5rem 1rem;">Change Location</button>
+                    </div>
+                    <div class="radius-control">
+                        <label for="radius-select">Radius:</label>
+                        <select id="radius-select" class="radius-select" onchange="alert('Radius changed - wireframe only')">
+                            <option value="5">5 miles</option>
+                            <option value="10" selected>10 miles</option>
+                            <option value="25">25 miles</option>
+                            <option value="50">50 miles</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="map-and-list">
+                <div class="map-container">
+                    <div id="dealership-map" class="map">
+                        <!-- Map will be rendered here -->
+                        <div class="map-placeholder">
+                            <div class="map-content">
+                                <div class="map-marker" style="top: 30%; left: 25%;">
+                                    <div class="marker-icon">🚗</div>
+                                    <div class="marker-label">Sunset Toyota<br>★★★★★ 4.8</div>
+                                </div>
+                                <div class="map-marker" style="top: 45%; left: 60%;">
+                                    <div class="marker-icon">🚗</div>
+                                    <div class="marker-label">Metro Honda<br>★★★★☆ 4.5</div>
+                                </div>
+                                <div class="map-marker" style="top: 65%; left: 40%;">
+                                    <div class="marker-icon">🚗</div>
+                                    <div class="marker-label">AutoMax Used<br>★★★★☆ 4.2</div>
+                                </div>
+                                <div class="map-marker" style="top: 50%; left: 80%;">
+                                    <div class="marker-icon">🚗</div>
+                                    <div class="marker-label">Downtown Ford<br>★★★☆☆ 3.8</div>
+                                </div>
+                                <div class="user-location" style="top: 50%; left: 50%;">
+                                    <div class="user-marker">📍</div>
+                                    <div class="user-label">Your Location</div>
+                                </div>
+                                <div class="radius-circle"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="dealership-list-sidebar">
+                    <h3>Top Rated Nearby</h3>
+                    <div class="nearby-dealership" onclick="alert('Click to focus on map - wireframe only')">
+                        <div class="dealership-info">
+                            <h4><a href="dealership-detail.html" style="text-decoration: none; color: inherit;">Sunset Toyota</a></h4>
+                            <div class="location-distance">📍 1.2 miles • Los Angeles, CA</div>
+                            <div class="rating">
+                                <span class="stars">★★★★★</span>
+                                <span class="rating-number">4.8</span>
+                                <span class="review-count">(324)</span>
+                            </div>
+                            <div class="dealership-meta">
+                                <span class="meta-tag">Toyota</span>
+                                <span class="meta-tag">New Cars</span>
+                                <span class="open-status open">Open until 9 PM</span>
+                            </div>
+                        </div>
+                        <a href="dealership-detail.html" class="btn btn-primary btn-sm">View</a>
+                    </div>
+
+                    <div class="nearby-dealership" onclick="alert('Click to focus on map - wireframe only')">
+                        <div class="dealership-info">
+                            <h4><a href="dealership-detail.html" style="text-decoration: none; color: inherit;">Metro Honda</a></h4>
+                            <div class="location-distance">📍 3.8 miles • Beverly Hills, CA</div>
+                            <div class="rating">
+                                <span class="stars">★★★★☆</span>
+                                <span class="rating-number">4.5</span>
+                                <span class="review-count">(189)</span>
+                            </div>
+                            <div class="dealership-meta">
+                                <span class="meta-tag">Honda</span>
+                                <span class="meta-tag">Acura</span>
+                                <span class="open-status open">Open until 8 PM</span>
+                            </div>
+                        </div>
+                        <a href="dealership-detail.html" class="btn btn-primary btn-sm">View</a>
+                    </div>
+
+                    <div class="nearby-dealership" onclick="alert('Click to focus on map - wireframe only')">
+                        <div class="dealership-info">
+                            <h4><a href="dealership-detail.html" style="text-decoration: none; color: inherit;">AutoMax Used Cars</a></h4>
+                            <div class="location-distance">📍 5.1 miles • Santa Monica, CA</div>
+                            <div class="rating">
+                                <span class="stars">★★★★☆</span>
+                                <span class="rating-number">4.2</span>
+                                <span class="review-count">(97)</span>
+                            </div>
+                            <div class="dealership-meta">
+                                <span class="meta-tag">Used Cars</span>
+                                <span class="meta-tag">Multi-brand</span>
+                                <span class="open-status open">Open until 7 PM</span>
+                            </div>
+                        </div>
+                        <a href="dealership-detail.html" class="btn btn-primary btn-sm">View</a>
+                    </div>
+
+                    <div class="nearby-dealership" onclick="alert('Click to focus on map - wireframe only')">
+                        <div class="dealership-info">
+                            <h4><a href="dealership-detail.html" style="text-decoration: none; color: inherit;">Downtown Ford</a></h4>
+                            <div class="location-distance">📍 7.3 miles • Los Angeles, CA</div>
+                            <div class="rating">
+                                <span class="stars">★★★☆☆</span>
+                                <span class="rating-number">3.8</span>
+                                <span class="review-count">(156)</span>
+                            </div>
+                            <div class="dealership-meta">
+                                <span class="meta-tag">Ford</span>
+                                <span class="meta-tag">Lincoln</span>
+                                <span class="open-status open">Open until 8 PM</span>
+                            </div>
+                        </div>
+                        <a href="dealership-detail.html" class="btn btn-primary btn-sm">View</a>
+                    </div>
+                    
+                    <div style="text-align: center; margin-top: 1rem;">
+                        <a href="dealerships.html" class="btn btn-secondary">View All Nearby Dealerships</a>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section class="section">
+            <h2>Recent Reviews</h2>
+            <div class="grid grid-2">
+                <div class="card">
+                    <div class="rating">
+                        <span class="stars">★★★★★</span>
+                        <strong>Amazing experience at Sunset Toyota</strong>
+                    </div>
+                    <p>"Just bought my first car here and the staff was incredibly helpful. No pressure sales tactics and they explained everything clearly. Highly recommend!"</p>
+                    <div style="margin-top: 1rem; color: #7f8c8d; font-size: 0.9rem;">
+                        - Sarah M. • 2 days ago
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="rating">
+                        <span class="stars">★★★★☆</span>
+                        <strong>Good service at Metro Honda</strong>
+                    </div>
+                    <p>"Service department was quick and efficient. They fixed my AC issue in under 2 hours. Pricing was fair and they showed me exactly what they did."</p>
+                    <div style="margin-top: 1rem; color: #7f8c8d; font-size: 0.9rem;">
+                        - Mike R. • 1 week ago
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="rating">
+                        <span class="stars">★★★☆☆</span>
+                        <strong>Mixed experience at Downtown Ford</strong>
+                    </div>
+                    <p>"Great car selection but the paperwork process took forever. Sales rep was friendly but seemed disorganized. Car quality is good though."</p>
+                    <div style="margin-top: 1rem; color: #7f8c8d; font-size: 0.9rem;">
+                        - Jennifer L. • 3 days ago
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="rating">
+                        <span class="stars">★★★★★</span>
+                        <strong>Excellent used car purchase</strong>
+                    </div>
+                    <p>"AutoMax was transparent about the car's history and condition. No hidden fees and they even threw in a warranty. Will definitely shop here again."</p>
+                    <div style="margin-top: 1rem; color: #7f8c8d; font-size: 0.9rem;">
+                        - David K. • 5 days ago
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section class="section" style="text-align: center;">
+            <h2>Share Your Dealership Experience</h2>
+            <p>Help others make informed decisions by sharing your honest review</p>
+            <a href="review-form.html" class="btn btn-primary" style="margin-top: 1rem;">Write a Review</a>
+        </section>
+    </main>
+
+    <footer>
+        <div class="container">
+            <p>&copy; 2024 DealerRate. Help car buyers make informed decisions.</p>
+        </div>
+    </footer>
+</body>
+</html>
