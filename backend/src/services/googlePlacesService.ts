@@ -46,7 +46,7 @@ export interface SearchDealershipsParams {
 class GooglePlacesService {
   async searchDealerships(params: SearchDealershipsParams): Promise<GooglePlaceResult[]> {
     try {
-      let query = 'car dealership';
+      let query = 'car dealership OR motorcycle dealership';
       
       if (params.brand) {
         query = `${params.brand} dealership`;
@@ -55,13 +55,18 @@ class GooglePlacesService {
       const searchParams: any = {
         key: googleMapsApiKey!,
         query,
-        type: 'car_dealer',
+        // Remove specific type to allow both car and motorcycle dealers
       };
 
-      // If coordinates are provided, use them for location
+      // Prioritize coordinates over location string for more accurate radius-based search
       if (params.latitude && params.longitude) {
         searchParams.location = `${params.latitude},${params.longitude}`;
         searchParams.radius = (params.radius || 10) * 1000; // Convert km to meters
+        logger.info('Using coordinates for search', { 
+          latitude: params.latitude, 
+          longitude: params.longitude, 
+          radius: params.radius 
+        });
       } else if (params.location) {
         // Geocode the location string first
         const geocodeResponse = await client.geocode({
@@ -75,7 +80,16 @@ class GooglePlacesService {
           const location = geocodeResponse.data.results[0].geometry.location;
           searchParams.location = `${location.lat},${location.lng}`;
           searchParams.radius = (params.radius || 10) * 1000;
+          logger.info('Using geocoded location for search', { 
+            originalLocation: params.location,
+            latitude: location.lat, 
+            longitude: location.lng, 
+            radius: params.radius 
+          });
         }
+      } else {
+        logger.warn('No location or coordinates provided for search');
+        throw new Error('Either location string or coordinates must be provided');
       }
 
       logger.info('Searching dealerships with Google Places API', { searchParams });

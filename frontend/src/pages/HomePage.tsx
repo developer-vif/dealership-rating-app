@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import {
   Container,
   Typography,
@@ -21,6 +21,39 @@ const HomePage: React.FC = () => {
   const navigate = useNavigate();
   const [searchValue, setSearchValue] = React.useState('');
   const { position, loading, error } = useGeolocation();
+  
+  const locationInputRef = useRef<HTMLInputElement>(null);
+  const autocompleteRef = useRef<google.maps.places.Autocomplete | null>(null);
+
+  // Initialize Google Places Autocomplete
+  useEffect(() => {
+    if (locationInputRef.current && window.google) {
+      autocompleteRef.current = new google.maps.places.Autocomplete(
+        locationInputRef.current,
+        {
+          types: ['(cities)'],
+          bounds: new google.maps.LatLngBounds(
+            new google.maps.LatLng(4.5, 116.0), // Southwest corner of Philippines
+            new google.maps.LatLng(21.0, 127.0)  // Northeast corner of Philippines
+          ),
+          strictBounds: false, // Bias toward Philippines but allow global suggestions
+        }
+      );
+
+      autocompleteRef.current.addListener('place_changed', () => {
+        const place = autocompleteRef.current?.getPlace();
+        if (place && place.formatted_address) {
+          setSearchValue(place.formatted_address);
+        }
+      });
+    }
+
+    return () => {
+      if (autocompleteRef.current) {
+        google.maps.event.clearInstanceListeners(autocompleteRef.current);
+      }
+    };
+  }, []);
 
   useEffect(() => {
     const fetchLocationName = async () => {
@@ -33,10 +66,10 @@ const HomePage: React.FC = () => {
           setSearchValue(locationName);
         } catch (error) {
           console.error('Error getting location name:', error);
-          setSearchValue('Los Angeles'); // Fallback
+          setSearchValue('Manila'); // Fallback
         }
       } else if (error) {
-        setSearchValue('Los Angeles'); // Fallback on error
+        setSearchValue('Manila'); // Fallback on error
       }
     };
 
@@ -47,7 +80,7 @@ const HomePage: React.FC = () => {
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
-    navigate(`/dealerships?location=${encodeURIComponent(searchValue)}`);
+    navigate(`/dealerships?location=${encodeURIComponent(searchValue)}&radius=10`);
   };
 
   const mockRecentReviews = [
@@ -119,6 +152,7 @@ const HomePage: React.FC = () => {
               value={searchValue}
               onChange={(e) => setSearchValue(e.target.value)}
               size="medium"
+              inputRef={locationInputRef}
             />
             <Button
               type="submit"

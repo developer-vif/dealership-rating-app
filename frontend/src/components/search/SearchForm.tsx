@@ -28,6 +28,7 @@ interface SearchFormProps {
   onSearch: (params: SearchParams) => void;
   loading?: boolean;
   initialLocation?: string;
+  currentPosition?: { latitude: number; longitude: number } | null;
 }
 
 const carBrands = [
@@ -65,6 +66,7 @@ const SearchForm: React.FC<SearchFormProps> = ({
   onSearch,
   loading = false,
   initialLocation,
+  currentPosition,
 }) => {
   const [location, setLocation] = useState(initialLocation || '');
   const [brand, setBrand] = useState('All Brands');
@@ -96,7 +98,11 @@ const SearchForm: React.FC<SearchFormProps> = ({
         locationInputRef.current,
         {
           types: ['(cities)'],
-          componentRestrictions: { country: 'us' },
+          bounds: new google.maps.LatLngBounds(
+            new google.maps.LatLng(4.5, 116.0), // Southwest corner of Philippines
+            new google.maps.LatLng(21.0, 127.0)  // Northeast corner of Philippines
+          ),
+          strictBounds: false, // Bias toward Philippines but allow global suggestions
         }
       );
 
@@ -119,12 +125,12 @@ const SearchForm: React.FC<SearchFormProps> = ({
   // Auto-populate location when geolocation is available (only if no initial location was provided)
   useEffect(() => {
     const updateLocationFromPosition = async () => {
-      if (position && !location && !initialLocation) {
+      if (currentPosition && !location && !initialLocation) {
         setIsLoadingLocation(true);
         try {
           const locationName = await getCurrentLocationName(
-            position.latitude,
-            position.longitude
+            currentPosition.latitude,
+            currentPosition.longitude
           );
           setLocation(locationName);
           setLocationError(null);
@@ -138,17 +144,34 @@ const SearchForm: React.FC<SearchFormProps> = ({
     };
 
     updateLocationFromPosition();
-  }, [position, location, initialLocation]);
+  }, [currentPosition, location, initialLocation]);
 
-  const handleUseCurrentLocation = () => {
-    setIsLoadingLocation(true);
-    getCurrentPosition();
+  const handleUseCurrentLocation = async () => {
+    if (currentPosition) {
+      setIsLoadingLocation(true);
+      try {
+        const locationName = await getCurrentLocationName(
+          currentPosition.latitude,
+          currentPosition.longitude
+        );
+        setLocation(locationName);
+        setLocationError(null);
+      } catch (error) {
+        console.error('Error getting location name:', error);
+        setLocationError('Failed to get current location name');
+      } finally {
+        setIsLoadingLocation(false);
+      }
+    } else {
+      setIsLoadingLocation(true);
+      getCurrentPosition();
+    }
   };
 
   // Effect to handle updating location when position changes after user requests it
   useEffect(() => {
     const updateLocationAfterUserRequest = async () => {
-      if (position && isLoadingLocation) {
+      if (position && isLoadingLocation && !currentPosition) {
         try {
           const locationName = await getCurrentLocationName(
             position.latitude,
@@ -166,7 +189,7 @@ const SearchForm: React.FC<SearchFormProps> = ({
     };
 
     updateLocationAfterUserRequest();
-  }, [position, isLoadingLocation]);
+  }, [position, isLoadingLocation, currentPosition]);
 
   const handleClearLocation = () => {
     setLocation('');
@@ -174,23 +197,26 @@ const SearchForm: React.FC<SearchFormProps> = ({
   };
 
   const handleSearch = () => {
-    if (!location.trim()) {
+    if (!location.trim() && !currentPosition) {
       setLocationError('Please enter a location or use your current location');
       return;
     }
 
     const searchParams: SearchParams = {
-      location: location.trim(),
       radius,
       brand: brand === 'All Brands' ? undefined : brand,
     };
 
-    // If we have position coordinates, include them
-    if (position) {
-      searchParams.latitude = position.latitude;
-      searchParams.longitude = position.longitude;
+    // If user has entered a location manually, use that instead of coordinates
+    // This allows users to search for locations different from their current position
+    if (location.trim()) {
+      searchParams.location = location.trim();
+    } else if (currentPosition) {
+      searchParams.latitude = currentPosition.latitude;
+      searchParams.longitude = currentPosition.longitude;
     }
-
+    
+    
     onSearch(searchParams);
   };
 
@@ -277,12 +303,18 @@ const SearchForm: React.FC<SearchFormProps> = ({
         </Typography>
         <Slider
           value={radius}
-          onChange={(_, newValue) => setRadius(newValue as number)}
-          min={5}
+          onChange={(_, newValue) => {
+            console.log('📏 Radius changed from', radius, 'to', newValue);
+            console.log('⚠️ Note: Radius change does NOT trigger automatic search');
+            setRadius(newValue as number);
+          }}
+          min={1}
           max={50}
-          step={5}
+          step={1}
           marks={[
+            { value: 1, label: '1km' },
             { value: 5, label: '5km' },
+            { value: 10, label: '10km' },
             { value: 25, label: '25km' },
             { value: 50, label: '50km' },
           ]}
@@ -296,7 +328,10 @@ const SearchForm: React.FC<SearchFormProps> = ({
         <InputLabel>Car Brand</InputLabel>
         <Select
           value={brand}
-          onChange={(e) => setBrand(e.target.value)}
+          onChange={(e) => {
+            console.log('🏷️ Brand changed from', brand, 'to', e.target.value);
+            setBrand(e.target.value);
+          }}
           label="Car Brand"
         >
           {carBrands.map((brandOption) => (

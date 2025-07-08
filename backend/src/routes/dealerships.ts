@@ -2,12 +2,38 @@ import { Router, Request, Response } from 'express';
 import { logger } from '../utils/logger';
 import googlePlacesService from '../services/googlePlacesService';
 
+// Helper function to calculate distance between two coordinates using Haversine formula
+const calculateDistance = (
+  pos1: { latitude: number; longitude: number },
+  pos2: { latitude: number; longitude: number }
+): number => {
+  const R = 6371; // Earth's radius in kilometers
+  const dLat = toRadians(pos2.latitude - pos1.latitude);
+  const dLon = toRadians(pos2.longitude - pos1.longitude);
+  
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(toRadians(pos1.latitude)) *
+      Math.cos(toRadians(pos2.latitude)) *
+      Math.sin(dLon / 2) *
+      Math.sin(dLon / 2);
+  
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  const distance = R * c;
+  
+  return Math.round(distance * 10) / 10; // Round to 1 decimal place
+};
+
+const toRadians = (degrees: number): number => {
+  return degrees * (Math.PI / 180);
+};
+
 const router = Router();
 
 // GET /api/dealerships/search - Search dealerships by location
 router.get('/search', async (req: Request, res: Response) => {
   try {
-    const { location, lat, lng, radius, brand, page = 1, limit = 20 } = req.query;
+    const { location, lat, lng, radius, brand, page = 1, limit = 50 } = req.query;
     
     logger.info('Dealership search request', { location, lat, lng, radius, brand, page, limit });
     
@@ -23,9 +49,24 @@ router.get('/search', async (req: Request, res: Response) => {
     const googleResults = await googlePlacesService.searchDealerships(searchParams);
     
     // Transform Google Places results to our app format
-    const dealerships = googleResults.map(place => 
-      googlePlacesService.transformToAppFormat(place)
-    );
+    const dealerships = googleResults.map(place => {
+      const dealership = googlePlacesService.transformToAppFormat(place);
+      
+      // Add distance calculation if coordinates were provided
+      if (searchParams.latitude && searchParams.longitude) {
+        dealership.distance = calculateDistance(
+          { latitude: searchParams.latitude, longitude: searchParams.longitude },
+          { latitude: place.geometry.location.lat, longitude: place.geometry.location.lng }
+        );
+      }
+      
+      return dealership;
+    });
+
+    // Sort by distance if coordinates were provided
+    if (searchParams.latitude && searchParams.longitude) {
+      dealerships.sort((a, b) => (a.distance || 0) - (b.distance || 0));
+    }
 
     // Apply pagination
     const pageNum = parseInt(page as string);
@@ -125,11 +166,11 @@ router.get('/nearby', async (req: Request, res: Response) => {
     const nearbyDealerships = googleResults.map(place => {
       const fullDealership = googlePlacesService.transformToAppFormat(place);
       
-      // Calculate distance (simplified - in a real app you'd use proper distance calculation)
-      const distance = Math.sqrt(
-        Math.pow(latitude - place.geometry.location.lat, 2) + 
-        Math.pow(longitude - place.geometry.location.lng, 2)
-      ) * 111; // Rough conversion to km
+      // Calculate distance using Haversine formula
+      const distance = calculateDistance(
+        { latitude, longitude },
+        { latitude: place.geometry.location.lat, longitude: place.geometry.location.lng }
+      );
       
       return {
         id: place.place_id,

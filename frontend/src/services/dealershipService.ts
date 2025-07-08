@@ -26,21 +26,24 @@ class DealershipService {
 
   async searchDealerships(params: SearchParams): Promise<SearchResponse> {
     try {
+      const apiParams = {
+        location: params.location,
+        radius: params.radius || 10,
+        brand: params.brand,
+        page: params.page || 1,
+        limit: params.limit || 50,
+      };
+      
+      
       const response = await this.api.get<ApiResponse<Dealership[]>>('/search', {
-        params: {
-          location: params.location,
-          radius: params.radius || 10,
-          brand: params.brand,
-          page: params.page || 1,
-          limit: params.limit || 20,
-        },
+        params: apiParams,
       });
 
       if (!response.data.success) {
         throw new Error('Search request failed');
       }
 
-      return {
+      const searchResponse = {
         dealerships: response.data.data,
         pagination: response.data.pagination || {
           page: 1,
@@ -49,8 +52,19 @@ class DealershipService {
           hasNext: false,
         },
       };
+      
+      console.log('✅ searchDealerships API response:', {
+        dealershipsCount: searchResponse.dealerships.length,
+        pagination: searchResponse.pagination,
+        firstDealership: searchResponse.dealerships[0]?.name || 'N/A'
+      });
+      
+      return searchResponse;
     } catch (error) {
-      console.error('Error searching dealerships:', error);
+      console.error('❌ searchDealerships API error:', error);
+      if (error instanceof Error) {
+        console.error('❌ Error details:', error.message);
+      }
       throw new Error('Failed to search dealerships. Please try again.');
     }
   }
@@ -101,22 +115,27 @@ class DealershipService {
     params: Omit<SearchParams, 'latitude' | 'longitude'> = {}
   ): Promise<SearchResponse> {
     try {
+      const apiParams = {
+        lat: latitude,
+        lng: longitude,
+        radius: params.radius || 10,
+        brand: params.brand,
+        page: params.page || 1,
+        limit: params.limit || 50,
+      };
+      
+      console.log('🚀 DealershipService.searchDealershipsByLocation called with:', { latitude, longitude, params });
+      console.log('📮 API request parameters:', apiParams);
+      
       const response = await this.api.get<ApiResponse<Dealership[]>>('/search', {
-        params: {
-          lat: latitude,
-          lng: longitude,
-          radius: params.radius || 10,
-          brand: params.brand,
-          page: params.page || 1,
-          limit: params.limit || 20,
-        },
+        params: apiParams,
       });
 
       if (!response.data.success) {
         throw new Error('Location-based search request failed');
       }
 
-      return {
+      const locationSearchResponse = {
         dealerships: response.data.data,
         pagination: response.data.pagination || {
           page: 1,
@@ -125,8 +144,19 @@ class DealershipService {
           hasNext: false,
         },
       };
+      
+      console.log('✅ searchDealershipsByLocation API response:', {
+        dealershipsCount: locationSearchResponse.dealerships.length,
+        pagination: locationSearchResponse.pagination,
+        firstDealership: locationSearchResponse.dealerships[0]?.name || 'N/A'
+      });
+      
+      return locationSearchResponse;
     } catch (error) {
-      console.error('Error searching dealerships by location:', error);
+      console.error('❌ searchDealershipsByLocation API error:', error);
+      if (error instanceof Error) {
+        console.error('❌ Error details:', error.message);
+      }
       throw new Error('Failed to search dealerships by location. Please try again.');
     }
   }

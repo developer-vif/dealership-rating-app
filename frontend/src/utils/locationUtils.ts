@@ -42,9 +42,10 @@ export const getCurrentLocationName = async (
   try {
     console.log('Attempting to geocode coordinates:', { latitude, longitude });
     
-    // Ensure Google Maps API is loaded
-    const { loadGoogleMapsAPI } = await import('./googleMapsLoader');
-    await loadGoogleMapsAPI();
+    // Check if Google Maps API is loaded (should be loaded globally by App component)
+    if (typeof google === 'undefined' || !google.maps) {
+      throw new Error('Google Maps API not loaded');
+    }
     
     const geocoder = new google.maps.Geocoder();
     const result = await geocoder.geocode({

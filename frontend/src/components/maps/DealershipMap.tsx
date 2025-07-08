@@ -1,7 +1,6 @@
-import React, { useState, useCallback, useRef } from 'react';
+import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import {
   GoogleMap,
-  LoadScript,
   Marker,
   InfoWindow,
   Circle,
@@ -62,23 +61,108 @@ const DealershipMap: React.FC<DealershipMapProps> = ({
 }) => {
   const [selectedMarker, setSelectedMarker] = useState<Dealership | null>(null);
   const [mapLoaded, setMapLoaded] = useState(false);
+  const [googleMapsReady, setGoogleMapsReady] = useState(false);
   const mapRef = useRef<google.maps.Map | null>(null);
-
-  const googleMapsApiKey = process.env.REACT_APP_GOOGLE_MAPS_API_KEY;
+  const markersRef = useRef<google.maps.Marker[]>([]);
 
   const mapContainerStyleDynamic = {
     ...mapContainerStyle,
     height,
   };
 
+  // Check if Google Maps API is fully ready (only once)
+  useEffect(() => {
+    const checkGoogleMapsReady = () => {
+      if (typeof google !== 'undefined' && google.maps && google.maps.Marker) {
+        setGoogleMapsReady(true);
+        return true;
+      }
+      return false;
+    };
+
+    // Check immediately
+    if (checkGoogleMapsReady()) return;
+
+    // Only retry once with delay
+    const timer = setTimeout(() => {
+      checkGoogleMapsReady();
+    }, 200);
+    
+    return () => clearTimeout(timer);
+  }, []); // Empty dependency array - only run once
+
+  // Removed excessive re-checking to reduce API calls
+
+  // Create markers directly using Google Maps API (debounced)
+  useEffect(() => {
+    if (!mapLoaded || !googleMapsReady || !mapRef.current || dealerships.length === 0) {
+      return;
+    }
+
+    // Debounce marker creation to prevent excessive API calls
+    const timer = setTimeout(() => {
+      console.log('🎯 Creating markers for', dealerships.length, 'dealerships');
+
+      // Clear existing markers
+      markersRef.current.forEach(marker => {
+        if (marker.setMap) {
+          marker.setMap(null);
+        }
+      });
+      markersRef.current = [];
+
+      // Create new markers
+      dealerships.forEach((dealership) => {
+        try {
+          const marker = new google.maps.Marker({
+            position: {
+              lat: dealership.latitude,
+              lng: dealership.longitude,
+            },
+            map: mapRef.current,
+            title: dealership.name,
+          });
+
+          marker.addListener('click', () => {
+            handleMarkerClick(dealership);
+          });
+
+          markersRef.current.push(marker);
+        } catch (error) {
+          console.error('❌ Failed to create marker for:', dealership.name, error);
+        }
+      });
+
+      console.log('✅ Created', markersRef.current.length, 'markers');
+    }, 300); // 300ms debounce
+
+    return () => clearTimeout(timer);
+  }, [dealerships, mapLoaded, googleMapsReady]);
+
   const onMapLoad = useCallback((map: google.maps.Map) => {
     mapRef.current = map;
     setMapLoaded(true);
+    
+    // Double-check Google Maps API is ready when map loads
+    if (typeof google !== 'undefined' && google.maps && google.maps.Marker) {
+      setGoogleMapsReady(true);
+    } else {
+      console.warn('⚠️ Map loaded but Google Maps API not ready');
+    }
   }, []);
 
   const onMapUnmount = useCallback(() => {
+    // Clean up markers
+    markersRef.current.forEach(marker => {
+      if (marker.setMap) {
+        marker.setMap(null);
+      }
+    });
+    markersRef.current = [];
+    
     mapRef.current = null;
     setMapLoaded(false);
+    setGoogleMapsReady(false);
   }, []);
 
   const handleMarkerClick = (dealership: Dealership) => {
@@ -107,64 +191,19 @@ const DealershipMap: React.FC<DealershipMapProps> = ({
     window.open(url, '_blank');
   };
 
-  // Custom marker icon for dealerships
-  const dealershipIcon = {
-    url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(`
-      <svg width="32" height="40" viewBox="0 0 32 40" xmlns="http://www.w3.org/2000/svg">
-        <path d="M16 0C24.837 0 32 7.163 32 16C32 24.837 16 40 16 40S0 24.837 0 16C0 7.163 7.163 0 16 0Z" fill="#1976d2"/>
-        <circle cx="16" cy="16" r="10" fill="white"/>
-        <text x="16" y="20" text-anchor="middle" fill="#1976d2" font-family="Arial" font-size="12" font-weight="bold">🚗</text>
-      </svg>
-    `),
-    scaledSize: new google.maps.Size(32, 40),
-    anchor: new google.maps.Point(16, 40),
-  };
-
-  // Current location marker icon
-  const currentLocationIcon = {
-    url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(`
-      <svg width="20" height="20" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
-        <circle cx="10" cy="10" r="8" fill="#4285f4" stroke="white" stroke-width="3"/>
-        <circle cx="10" cy="10" r="3" fill="white"/>
-      </svg>
-    `),
-    scaledSize: new google.maps.Size(20, 20),
-    anchor: new google.maps.Point(10, 10),
-  };
-
-  if (!googleMapsApiKey) {
-    return (
-      <Box
-        sx={{
-          height,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          backgroundColor: 'grey.100',
-          borderRadius: 1,
-        }}
-      >
-        <Typography color="error">
-          Google Maps API key is not configured
-        </Typography>
-      </Box>
-    );
-  }
 
   return (
-    <LoadScript googleMapsApiKey={googleMapsApiKey} libraries={['places']}>
-      <GoogleMap
-        mapContainerStyle={mapContainerStyleDynamic}
-        center={center}
-        zoom={zoom}
-        options={mapOptions}
-        onLoad={onMapLoad}
-        onUnmount={onMapUnmount}
-      >
+    <GoogleMap
+      mapContainerStyle={mapContainerStyleDynamic}
+      center={center}
+      zoom={zoom}
+      options={mapOptions}
+      onLoad={onMapLoad}
+      onUnmount={onMapUnmount}
+    >
         {/* Current location marker */}
         <Marker
           position={center}
-          icon={currentLocationIcon}
           title="Your Location"
         />
 
@@ -183,19 +222,7 @@ const DealershipMap: React.FC<DealershipMapProps> = ({
           />
         )}
 
-        {/* Dealership markers */}
-        {dealerships.map((dealership) => (
-          <Marker
-            key={dealership.id}
-            position={{
-              lat: dealership.latitude,
-              lng: dealership.longitude,
-            }}
-            icon={dealershipIcon}
-            title={dealership.name}
-            onClick={() => handleMarkerClick(dealership)}
-          />
-        ))}
+        {/* Dealership markers - rendered using native Google Maps API */}
 
         {/* Info window for selected marker */}
         {selectedMarker && (
@@ -296,8 +323,7 @@ const DealershipMap: React.FC<DealershipMapProps> = ({
             </Card>
           </InfoWindow>
         )}
-      </GoogleMap>
-    </LoadScript>
+    </GoogleMap>
   );
 };
 

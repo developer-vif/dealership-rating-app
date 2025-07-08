@@ -1,73 +1,127 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, startTransition } from 'react';
 import {
   Container,
   Typography,
   Box,
   Grid,
   Paper,
-  Tabs,
-  Tab,
   Alert,
-  Fade,
 } from '@mui/material';
-import {
-  ViewList as ListIcon,
-  Map as MapIcon,
-} from '@mui/icons-material';
 import { useSearchParams } from 'react-router-dom';
 import SearchForm from '../components/search/SearchForm';
-import SearchResults from '../components/search/SearchResults';
-import DealershipMap from '../components/maps/DealershipMap';
+import MapViewSection from '../components/sections/MapViewSection';
+import SearchResultsSection from '../components/sections/SearchResultsSection';
 import useGeolocation from '../hooks/useGeolocation';
 import dealershipService from '../services/dealershipService';
 import { getCurrentLocationName } from '../utils/locationUtils';
 import { Dealership, SearchParams, SearchResponse } from '../types/dealership';
 
-interface TabPanelProps {
-  children?: React.ReactNode;
-  index: number;
-  value: number;
-}
-
-function TabPanel(props: TabPanelProps) {
-  const { children, value, index, ...other } = props;
-
-  return (
-    <div
-      role="tabpanel"
-      hidden={value !== index}
-      id={`view-tabpanel-${index}`}
-      aria-labelledby={`view-tab-${index}`}
-      {...other}
-    >
-      {value === index && <Box>{children}</Box>}
-    </div>
-  );
-}
 
 const DealershipsPage: React.FC = () => {
   const [searchResults, setSearchResults] = useState<SearchResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedDealership, setSelectedDealership] = useState<Dealership | null>(null);
-  const [currentView, setCurrentView] = useState(0); // 0 = list, 1 = map
   const [currentLocation, setCurrentLocation] = useState('');
-  const [mapCenter, setMapCenter] = useState({ lat: 34.0522, lng: -118.2437 }); // Default to LA
+  const [mapCenter, setMapCenter] = useState({ lat: 14.5995, lng: 120.9842 }); // Default to Manila
   const [searchRadius, setSearchRadius] = useState(10);
   const [initialSearchPerformed, setInitialSearchPerformed] = useState(false);
 
   const [searchParams] = useSearchParams();
   const { position, error: geoError } = useGeolocation();
 
+  const handleSearch = useCallback(async (inputParams: SearchParams) => {
+    // Validate input - require either location string or coordinates (same as SearchForm logic)
+    if (!inputParams.location?.trim() && !(inputParams.latitude && inputParams.longitude)) {
+      setError('Please provide a location or coordinates to search');
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+    
+    try {
+      // Normalize parameters similar to SearchForm logic
+      const searchParams: SearchParams = {
+        radius: inputParams.radius || 10,
+        brand: inputParams.brand === 'All Brands' ? undefined : inputParams.brand,
+        page: inputParams.page || 1,
+        limit: inputParams.limit || 10,
+      };
+
+      // Prioritize location string over coordinates (same as SearchForm)
+      if (inputParams.location?.trim()) {
+        searchParams.location = inputParams.location.trim();
+      } else if (inputParams.latitude && inputParams.longitude) {
+        searchParams.latitude = inputParams.latitude;
+        searchParams.longitude = inputParams.longitude;
+      }
+
+      let results: SearchResponse;
+      
+      if (searchParams.latitude && searchParams.longitude) {
+        // Search by coordinates
+        results = await dealershipService.searchDealershipsByLocation(
+          searchParams.latitude,
+          searchParams.longitude,
+          {
+            radius: searchParams.radius,
+            brand: searchParams.brand,
+            page: searchParams.page,
+            limit: searchParams.limit,
+          }
+        );
+        
+        setMapCenter({
+          lat: searchParams.latitude,
+          lng: searchParams.longitude,
+        });
+      } else {
+        // Search by location string
+        results = await dealershipService.searchDealerships(searchParams);
+        
+        // Calculate map center from search results
+        if (results.dealerships.length > 0) {
+          const dealershipsForCenter = results.dealerships.slice(0, 5);
+          const avgLat = dealershipsForCenter.reduce((sum, d) => sum + d.latitude, 0) / dealershipsForCenter.length;
+          const avgLng = dealershipsForCenter.reduce((sum, d) => sum + d.longitude, 0) / dealershipsForCenter.length;
+          
+          // Update map center for location-based searches
+          setMapCenter({
+            lat: avgLat,
+            lng: avgLng,
+          });
+        }
+      }
+      
+      // Update search results after map center is set
+      setSearchResults(results);
+      setSearchRadius(searchParams.radius);
+      setSelectedDealership(null);
+      
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'An error occurred while searching';
+      setError(errorMessage);
+      setSearchResults(null);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
   // Handle URL parameters for initial search
   useEffect(() => {
     const locationParam = searchParams.get('location');
+    const radiusParam = searchParams.get('radius');
     if (locationParam && !initialSearchPerformed) {
+      const urlSearchParams = { 
+        location: locationParam,
+        radius: radiusParam ? parseInt(radiusParam) : 10
+      };
       setCurrentLocation(locationParam);
-      handleSearch({ location: locationParam });
+      handleSearch(urlSearchParams);
       setInitialSearchPerformed(true);
     }
-  }, [searchParams, initialSearchPerformed]);
+  }, [searchParams, initialSearchPerformed, handleSearch]);
 
   // Update map center and current location when geolocation is available
   useEffect(() => {
@@ -94,53 +148,6 @@ const DealershipsPage: React.FC = () => {
     updateLocation();
   }, [position, currentLocation]);
 
-  const handleSearch = async (params: SearchParams) => {
-    setLoading(true);
-    setError(null);
-    
-    try {
-      let results: SearchResponse;
-      
-      if (params.latitude && params.longitude) {
-        // Search by coordinates
-        results = await dealershipService.searchDealershipsByLocation(
-          params.latitude,
-          params.longitude,
-          {
-            radius: params.radius || 10,
-            brand: params.brand,
-            page: params.page || 1,
-            limit: params.limit || 20,
-          }
-        );
-        
-        setMapCenter({
-          lat: params.latitude,
-          lng: params.longitude,
-        });
-      } else {
-        // Search by location string
-        results = await dealershipService.searchDealerships(params);
-      }
-      
-      setSearchResults(results);
-      setSearchRadius(params.radius || 10);
-      
-      // Clear selected dealership when new search is performed
-      setSelectedDealership(null);
-      
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'An error occurred while searching');
-      setSearchResults(null);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleViewChange = (_: React.SyntheticEvent, newValue: number) => {
-    setCurrentView(newValue);
-  };
-
   const handleDealershipSelect = (dealership: Dealership) => {
     setSelectedDealership(dealership);
     
@@ -149,11 +156,6 @@ const DealershipsPage: React.FC = () => {
       lat: dealership.latitude,
       lng: dealership.longitude,
     });
-    
-    // Switch to map view if not already there
-    if (currentView === 0) {
-      setCurrentView(1);
-    }
   };
 
   const hasResults = searchResults && searchResults.dealerships.length > 0;
@@ -176,6 +178,7 @@ const DealershipsPage: React.FC = () => {
               onSearch={handleSearch}
               loading={loading}
               initialLocation={currentLocation}
+              currentPosition={position}
             />
             
             {geoError && (
@@ -188,88 +191,60 @@ const DealershipsPage: React.FC = () => {
 
         {/* Results */}
         <Grid item xs={12} lg={8}>
-          {hasResults && (
-            <Paper sx={{ mb: 2 }}>
-              <Tabs
-                value={currentView}
-                onChange={handleViewChange}
-                aria-label="view tabs"
-                sx={{ borderBottom: 1, borderColor: 'divider' }}
-              >
-                <Tab
-                  icon={<ListIcon />}
-                  label="List View"
-                  id="view-tab-0"
-                  aria-controls="view-tabpanel-0"
-                />
-                <Tab
-                  icon={<MapIcon />}
-                  label="Map View"
-                  id="view-tab-1"
-                  aria-controls="view-tabpanel-1"
-                />
-              </Tabs>
-            </Paper>
-          )}
+          {hasResults ? (
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+              {/* Map View Section */}
+              <MapViewSection
+                searchResults={searchResults}
+                mapCenter={mapCenter}
+                searchRadius={searchRadius}
+                selectedDealership={selectedDealership}
+                onDealershipSelect={handleDealershipSelect}
+                loading={loading}
+              />
 
-          <TabPanel value={currentView} index={0}>
-            <Fade in={currentView === 0}>
-              <Box>
-                <SearchResults
-                  results={searchResults}
-                  loading={loading}
-                  error={error}
-                  onDealershipSelect={handleDealershipSelect}
-                  selectedDealership={selectedDealership}
-                />
-              </Box>
-            </Fade>
-          </TabPanel>
-
-          <TabPanel value={currentView} index={1}>
-            <Fade in={currentView === 1}>
-              <Box>
-                {hasResults ? (
-                  <DealershipMap
-                    dealerships={searchResults.dealerships}
-                    center={mapCenter}
-                    radius={searchRadius}
-                    onDealershipSelect={handleDealershipSelect}
-                    selectedDealership={selectedDealership}
-                    showRadius={true}
-                    height="600px"
-                    zoom={12}
-                  />
-                ) : (
-                  <Box
-                    sx={{
-                      height: 600,
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      backgroundColor: 'grey.100',
-                      borderRadius: 1,
-                    }}
-                  >
-                    <Typography color="text.secondary">
-                      Search for dealerships to view them on the map
-                    </Typography>
-                  </Box>
-                )}
-              </Box>
-            </Fade>
-          </TabPanel>
-
-          {/* No search performed yet */}
-          {!hasResults && !loading && !error && (
-            <Paper sx={{ p: 4, textAlign: 'center' }}>
-              <Typography variant="h6" gutterBottom>
-                Ready to find dealerships?
-              </Typography>
-              <Typography color="text.secondary">
-                Enter your location or use your current location to start searching for nearby dealerships.
-              </Typography>
-            </Paper>
+              {/* Search Results Section */}
+              <SearchResultsSection
+                searchResults={searchResults}
+                selectedDealership={selectedDealership}
+                onDealershipSelect={handleDealershipSelect}
+                loading={loading}
+                error={error}
+              />
+            </Box>
+          ) : (
+            <>
+              {/* Show loading, error, or empty state */}
+              {loading && (
+                <Paper sx={{ p: 4, textAlign: 'center' }}>
+                  <Typography variant="h6" gutterBottom>
+                    Searching for dealerships...
+                  </Typography>
+                </Paper>
+              )}
+              
+              {error && (
+                <Paper sx={{ p: 4, textAlign: 'center' }}>
+                  <Typography variant="h6" gutterBottom color="error">
+                    Search Error
+                  </Typography>
+                  <Typography color="text.secondary">
+                    {error}
+                  </Typography>
+                </Paper>
+              )}
+              
+              {!loading && !error && (
+                <Paper sx={{ p: 4, textAlign: 'center' }}>
+                  <Typography variant="h6" gutterBottom>
+                    Ready to find dealerships?
+                  </Typography>
+                  <Typography color="text.secondary">
+                    Enter your location or use your current location to start searching for nearby dealerships.
+                  </Typography>
+                </Paper>
+              )}
+            </>
           )}
         </Grid>
       </Grid>
