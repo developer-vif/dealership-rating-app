@@ -70,6 +70,8 @@ services:
       REACT_APP_API_URL: http://localhost:3002
       REACT_APP_GOOGLE_MAPS_API_KEY: ${GOOGLE_MAPS_API_KEY}
       REACT_APP_GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
+      WDS_SOCKET_PORT: 3003
+      WDS_SOCKET_HOST: localhost
     ports:
       - "3003:3000"
     depends_on:

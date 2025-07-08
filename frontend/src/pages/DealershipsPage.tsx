@@ -14,6 +14,7 @@ import {
   ViewList as ListIcon,
   Map as MapIcon,
 } from '@mui/icons-material';
+import { useSearchParams } from 'react-router-dom';
 import SearchForm from '../components/search/SearchForm';
 import SearchResults from '../components/search/SearchResults';
 import DealershipMap from '../components/maps/DealershipMap';
@@ -53,13 +54,25 @@ const DealershipsPage: React.FC = () => {
   const [currentLocation, setCurrentLocation] = useState('');
   const [mapCenter, setMapCenter] = useState({ lat: 34.0522, lng: -118.2437 }); // Default to LA
   const [searchRadius, setSearchRadius] = useState(10);
+  const [initialSearchPerformed, setInitialSearchPerformed] = useState(false);
 
+  const [searchParams] = useSearchParams();
   const { position, error: geoError } = useGeolocation();
+
+  // Handle URL parameters for initial search
+  useEffect(() => {
+    const locationParam = searchParams.get('location');
+    if (locationParam && !initialSearchPerformed) {
+      setCurrentLocation(locationParam);
+      handleSearch({ location: locationParam });
+      setInitialSearchPerformed(true);
+    }
+  }, [searchParams, initialSearchPerformed]);
 
   // Update map center and current location when geolocation is available
   useEffect(() => {
     const updateLocation = async () => {
-      if (position) {
+      if (position && !currentLocation) {
         setMapCenter({
           lat: position.latitude,
           lng: position.longitude,
@@ -73,12 +86,13 @@ const DealershipsPage: React.FC = () => {
           setCurrentLocation(locationName);
         } catch (error) {
           console.error('Error getting location name:', error);
+          setCurrentLocation('Philippines'); // Fallback
         }
       }
     };
 
     updateLocation();
-  }, [position]);
+  }, [position, currentLocation]);
 
   const handleSearch = async (params: SearchParams) => {
     setLoading(true);

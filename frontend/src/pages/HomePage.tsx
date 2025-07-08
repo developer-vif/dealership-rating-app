@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import {
   Container,
   Typography,
@@ -14,10 +14,36 @@ import {
 } from '@mui/material';
 import { Search, LocationOn, Star } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
+import useGeolocation from '../hooks/useGeolocation';
+import { getCurrentLocationName } from '../utils/locationUtils';
 
 const HomePage: React.FC = () => {
   const navigate = useNavigate();
-  const [searchValue, setSearchValue] = React.useState('Los Angeles');
+  const [searchValue, setSearchValue] = React.useState('');
+  const { position, loading, error } = useGeolocation();
+
+  useEffect(() => {
+    const fetchLocationName = async () => {
+      if (position) {
+        try {
+          const locationName = await getCurrentLocationName(
+            position.latitude,
+            position.longitude
+          );
+          setSearchValue(locationName);
+        } catch (error) {
+          console.error('Error getting location name:', error);
+          setSearchValue('Los Angeles'); // Fallback
+        }
+      } else if (error) {
+        setSearchValue('Los Angeles'); // Fallback on error
+      }
+    };
+
+    if (!loading) {
+      fetchLocationName();
+    }
+  }, [position, loading, error]);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();

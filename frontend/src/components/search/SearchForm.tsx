@@ -82,6 +82,13 @@ const SearchForm: React.FC<SearchFormProps> = ({
     getCurrentPosition,
   } = useGeolocation();
 
+  // Update location when initialLocation prop changes
+  useEffect(() => {
+    if (initialLocation) {
+      setLocation(initialLocation);
+    }
+  }, [initialLocation]);
+
   // Initialize Google Places Autocomplete
   useEffect(() => {
     if (locationInputRef.current && window.google) {
@@ -109,10 +116,10 @@ const SearchForm: React.FC<SearchFormProps> = ({
     };
   }, []);
 
-  // Auto-populate location when geolocation is available
+  // Auto-populate location when geolocation is available (only if no initial location was provided)
   useEffect(() => {
     const updateLocationFromPosition = async () => {
-      if (position && !location) {
+      if (position && !location && !initialLocation) {
         setIsLoadingLocation(true);
         try {
           const locationName = await getCurrentLocationName(
@@ -131,11 +138,35 @@ const SearchForm: React.FC<SearchFormProps> = ({
     };
 
     updateLocationFromPosition();
-  }, [position, location]);
+  }, [position, location, initialLocation]);
 
   const handleUseCurrentLocation = () => {
+    setIsLoadingLocation(true);
     getCurrentPosition();
   };
+
+  // Effect to handle updating location when position changes after user requests it
+  useEffect(() => {
+    const updateLocationAfterUserRequest = async () => {
+      if (position && isLoadingLocation) {
+        try {
+          const locationName = await getCurrentLocationName(
+            position.latitude,
+            position.longitude
+          );
+          setLocation(locationName);
+          setLocationError(null);
+        } catch (error) {
+          console.error('Error getting location name:', error);
+          setLocationError('Failed to get current location name');
+        } finally {
+          setIsLoadingLocation(false);
+        }
+      }
+    };
+
+    updateLocationAfterUserRequest();
+  }, [position, isLoadingLocation]);
 
   const handleClearLocation = () => {
     setLocation('');

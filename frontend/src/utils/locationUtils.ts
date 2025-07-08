@@ -40,12 +40,19 @@ export const getCurrentLocationName = async (
   longitude: number
 ): Promise<string> => {
   try {
+    console.log('Attempting to geocode coordinates:', { latitude, longitude });
+    
+    // Ensure Google Maps API is loaded
+    const { loadGoogleMapsAPI } = await import('./googleMapsLoader');
+    await loadGoogleMapsAPI();
+    
     const geocoder = new google.maps.Geocoder();
     const result = await geocoder.geocode({
       location: { lat: latitude, lng: longitude },
     });
 
     if (result.results && result.results.length > 0) {
+      console.log('Geocoding successful:', result.results[0].formatted_address);
       const addressComponents = result.results[0].address_components;
       
       // Try to get city, state format
@@ -64,11 +71,14 @@ export const getCurrentLocationName = async (
       
       // Fallback to formatted address
       return result.results[0].formatted_address;
+    } else {
+      console.warn('Geocoding returned no results.');
     }
   } catch (error) {
-    console.error('Error getting location name:', error);
+    console.error('Error in getCurrentLocationName:', error);
   }
   
+  console.log('Geocoding failed, returning coordinates.');
   return `${latitude.toFixed(4)}, ${longitude.toFixed(4)}`;
 };
 
