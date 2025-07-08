@@ -1,0 +1,228 @@
+import { Router, Request, Response } from 'express';
+import { logger } from '../utils/logger';
+import { verifyGoogleToken, getGoogleAuthUrl } from '../utils/googleAuth';
+import { generateToken, refreshToken as refreshJwtToken, verifyToken } from '../utils/jwt';
+import { authenticateToken } from '../middleware/auth';
+
+const router = Router();
+
+// GET /auth/google - Get Google OAuth URL
+router.get('/google', async (_req: Request, res: Response) => {
+  try {
+    const authUrl = getGoogleAuthUrl();
+    
+    res.status(200).json({
+      success: true,
+      data: {
+        authUrl,
+        message: 'Redirect user to this URL for Google OAuth'
+      },
+      meta: {
+        requestId: _req.headers['x-request-id'] || 'unknown',
+        timestamp: new Date().toISOString()
+      }
+    });
+  } catch (error) {
+    logger.error('Google OAuth URL generation error', { 
+      error: error instanceof Error ? error.message : 'Unknown error' 
+    });
+    res.status(500).json({
+      success: false,
+      error: {
+        code: 'INTERNAL_SERVER_ERROR',
+        message: 'An error occurred while generating OAuth URL'
+      }
+    });
+  }
+});
+
+// POST /auth/google - Verify Google token and authenticate user
+router.post('/google', async (req: Request, res: Response) => {
+  try {
+    const { token } = req.body;
+    
+    if (!token) {
+      return res.status(400).json({
+        success: false,
+        error: {
+          code: 'MISSING_TOKEN',
+          message: 'Google ID token is required'
+        }
+      });
+    }
+
+    // Verify Google token
+    const googleUser = await verifyGoogleToken(token);
+    
+    // Generate JWT token
+    const jwtToken = generateToken({
+      userId: googleUser.id,
+      email: googleUser.email,
+      name: googleUser.name,
+      picture: googleUser.picture || undefined,
+    });
+
+    logger.info('User authenticated via Google OAuth', { 
+      userId: googleUser.id, 
+      email: googleUser.email 
+    });
+    
+    res.status(200).json({
+      success: true,
+      data: {
+        token: jwtToken,
+        user: {
+          id: googleUser.id,
+          email: googleUser.email,
+          name: googleUser.name,
+          picture: googleUser.picture,
+          verified: googleUser.verified_email
+        }
+      },
+      meta: {
+        requestId: req.headers['x-request-id'] || 'unknown',
+        timestamp: new Date().toISOString()
+      }
+    });
+  } catch (error) {
+    logger.error('Google OAuth error', { 
+      error: error instanceof Error ? error.message : 'Unknown error' 
+    });
+    res.status(400).json({
+      success: false,
+      error: {
+        code: 'AUTHENTICATION_FAILED',
+        message: 'Google authentication failed'
+      }
+    });
+  }
+});
+
+router.post('/refresh', async (req: Request, res: Response) => {
+  try {
+    const { token } = req.body;
+    
+    if (!token) {
+      return res.status(400).json({
+        success: false,
+        error: {
+          code: 'MISSING_TOKEN',
+          message: 'Refresh token is required'
+        }
+      });
+    }
+
+    const newToken = refreshJwtToken(token);
+    const decoded = verifyToken(newToken);
+    
+    logger.info('JWT token refreshed', { userId: decoded.userId });
+    
+    res.status(200).json({
+      success: true,
+      data: {
+        token: newToken,
+        user: {
+          id: decoded.userId,
+          email: decoded.email,
+          name: decoded.name,
+          picture: decoded.picture
+        }
+      },
+      meta: {
+        requestId: req.headers['x-request-id'] || 'unknown',
+        timestamp: new Date().toISOString()
+      }
+    });
+  } catch (error) {
+    logger.error('JWT refresh error', { 
+      error: error instanceof Error ? error.message : 'Unknown error' 
+    });
+    res.status(400).json({
+      success: false,
+      error: {
+        code: 'REFRESH_FAILED',
+        message: 'Token refresh failed'
+      }
+    });
+  }
+});
+
+router.delete('/logout', async (req: Request, res: Response) => {
+  try {
+    // For JWT-based auth, logout is handled client-side by removing the token
+    // In a production environment, you might want to blacklist tokens
+    
+    logger.info('Logout request received', { 
+      userId: req.user?.userId || 'unknown',
+      ip: req.ip 
+    });
+    
+    res.status(200).json({
+      success: true,
+      data: { 
+        message: 'Logged out successfully',
+        note: 'Please remove the token from client storage'
+      },
+      meta: {
+        requestId: req.headers['x-request-id'] || 'unknown',
+        timestamp: new Date().toISOString()
+      }
+    });
+  } catch (error) {
+    logger.error('Logout error', { 
+      error: error instanceof Error ? error.message : 'Unknown error' 
+    });
+    res.status(500).json({
+      success: false,
+      error: {
+        code: 'INTERNAL_SERVER_ERROR',
+        message: 'An error occurred during logout'
+      }
+    });
+  }
+});
+
+router.get('/me', authenticateToken, async (req: Request, res: Response) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({
+        success: false,
+        error: {
+          code: 'UNAUTHORIZED',
+          message: 'User not authenticated'
+        }
+      });
+    }
+
+    logger.info('Get current user request', { userId: req.user.userId });
+    
+    res.status(200).json({
+      success: true,
+      data: {
+        user: {
+          id: req.user.userId,
+          email: req.user.email,
+          name: req.user.name,
+          picture: req.user.picture
+        }
+      },
+      meta: {
+        requestId: req.headers['x-request-id'] || 'unknown',
+        timestamp: new Date().toISOString()
+      }
+    });
+  } catch (error) {
+    logger.error('Get current user error', { 
+      error: error instanceof Error ? error.message : 'Unknown error' 
+    });
+    res.status(500).json({
+      success: false,
+      error: {
+        code: 'INTERNAL_SERVER_ERROR',
+        message: 'An error occurred while fetching user information'
+      }
+    });
+  }
+});
+
+export default router;
