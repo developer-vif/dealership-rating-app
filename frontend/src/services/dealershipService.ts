@@ -21,7 +21,7 @@ export interface ApiResponse<T> {
 class DealershipService {
   private api = axios.create({
     baseURL: `${API_BASE_URL}/api/dealerships`,
-    timeout: 10000,
+    timeout: 30000, // Increased timeout for recursive API calls
   });
 
   async searchDealerships(params: SearchParams): Promise<SearchResponse> {
@@ -31,7 +31,8 @@ class DealershipService {
         radius: params.radius || 10,
         brand: params.brand,
         page: params.page || 1,
-        limit: params.limit || 50,
+        limit: params.limit || params.pageSize || 100,
+        sortBy: params.sortBy || 'distance',
       };
       
       
@@ -47,13 +48,14 @@ class DealershipService {
         dealerships: response.data.data,
         pagination: response.data.pagination || {
           page: 1,
-          limit: 20,
+          limit: 100,
           total: response.data.data.length,
           hasNext: false,
         },
       };
       
       console.log('✅ searchDealerships API response:', {
+        requestedParams: apiParams,
         dealershipsCount: searchResponse.dealerships.length,
         pagination: searchResponse.pagination,
         firstDealership: searchResponse.dealerships[0]?.name || 'N/A'
@@ -121,7 +123,8 @@ class DealershipService {
         radius: params.radius || 10,
         brand: params.brand,
         page: params.page || 1,
-        limit: params.limit || 50,
+        limit: params.limit || params.pageSize || 100,
+        sortBy: params.sortBy || 'distance',
       };
       
       console.log('🚀 DealershipService.searchDealershipsByLocation called with:', { latitude, longitude, params });
@@ -139,13 +142,14 @@ class DealershipService {
         dealerships: response.data.data,
         pagination: response.data.pagination || {
           page: 1,
-          limit: 20,
+          limit: 100,
           total: response.data.data.length,
           hasNext: false,
         },
       };
       
       console.log('✅ searchDealershipsByLocation API response:', {
+        requestedParams: apiParams,
         dealershipsCount: locationSearchResponse.dealerships.length,
         pagination: locationSearchResponse.pagination,
         firstDealership: locationSearchResponse.dealerships[0]?.name || 'N/A'

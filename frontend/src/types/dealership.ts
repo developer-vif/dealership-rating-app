@@ -34,6 +34,8 @@ export interface SearchParams {
   brand?: string | undefined;
   page?: number;
   limit?: number;
+  sortBy?: string;
+  pageSize?: number;
 }
 
 export interface SearchResponse {

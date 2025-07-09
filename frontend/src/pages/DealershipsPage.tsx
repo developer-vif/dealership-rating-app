@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, startTransition } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Container,
   Typography,
@@ -18,6 +18,10 @@ import { Dealership, SearchParams, SearchResponse } from '../types/dealership';
 
 
 const DealershipsPage: React.FC = () => {
+  // Cache state
+  const [cachedDealerships, setCachedDealerships] = useState<Dealership[]>([]);
+  
+  // UI state
   const [searchResults, setSearchResults] = useState<SearchResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -26,9 +30,61 @@ const DealershipsPage: React.FC = () => {
   const [mapCenter, setMapCenter] = useState({ lat: 14.5995, lng: 120.9842 }); // Default to Manila
   const [searchRadius, setSearchRadius] = useState(10);
   const [initialSearchPerformed, setInitialSearchPerformed] = useState(false);
+  
+  // Local filtering/sorting state
+  const [currentSortBy, setCurrentSortBy] = useState('distance');
+  const [currentPageSize, setCurrentPageSize] = useState(10);
+  const [currentPage, setCurrentPage] = useState(1);
 
   const [searchParams] = useSearchParams();
   const { position, error: geoError } = useGeolocation();
+
+  // Local sorting function
+  const sortDealerships = useCallback((dealerships: Dealership[], sortBy: string): Dealership[] => {
+    const sorted = [...dealerships];
+    switch (sortBy) {
+      case 'distance':
+        return sorted.sort((a, b) => (a.distance || 0) - (b.distance || 0));
+      case 'rating':
+        return sorted.sort((a, b) => (b.googleRating || 0) - (a.googleRating || 0));
+      case 'reviews':
+        return sorted.sort((a, b) => (b.googleReviewCount || 0) - (a.googleReviewCount || 0));
+      case 'name':
+        return sorted.sort((a, b) => a.name.localeCompare(b.name));
+      default:
+        return sorted;
+    }
+  }, []);
+
+  // Local pagination function
+  const paginateDealerships = useCallback((dealerships: Dealership[], page: number, pageSize: number) => {
+    const startIndex = (page - 1) * pageSize;
+    const endIndex = startIndex + pageSize;
+    const paginatedDealerships = dealerships.slice(startIndex, endIndex);
+    
+    return {
+      dealerships: paginatedDealerships,
+      pagination: {
+        page,
+        limit: pageSize,
+        total: dealerships.length,
+        hasNext: endIndex < dealerships.length,
+      },
+    };
+  }, []);
+
+  // Update displayed results based on cached data
+  const updateDisplayedResults = useCallback(() => {
+    if (cachedDealerships.length === 0) {
+      setSearchResults(null);
+      return;
+    }
+
+    const sortedDealerships = sortDealerships(cachedDealerships, currentSortBy);
+    const paginatedResults = paginateDealerships(sortedDealerships, currentPage, currentPageSize);
+    
+    setSearchResults(paginatedResults);
+  }, [cachedDealerships, currentSortBy, currentPage, currentPageSize, sortDealerships, paginateDealerships]);
 
   const handleSearch = useCallback(async (inputParams: SearchParams) => {
     // Validate input - require either location string or coordinates (same as SearchForm logic)
@@ -45,8 +101,9 @@ const DealershipsPage: React.FC = () => {
       const searchParams: SearchParams = {
         radius: inputParams.radius || 10,
         brand: inputParams.brand === 'All Brands' ? undefined : inputParams.brand,
-        page: inputParams.page || 1,
-        limit: inputParams.limit || 10,
+        page: 1, // Always start at page 1 for new searches
+        limit: 100, // Always fetch all results for caching
+        sortBy: 'distance', // Default sort for API call
       };
 
       // Prioritize location string over coordinates (same as SearchForm)
@@ -65,10 +122,11 @@ const DealershipsPage: React.FC = () => {
           searchParams.latitude,
           searchParams.longitude,
           {
-            radius: searchParams.radius,
+            radius: searchParams.radius || 10,
             brand: searchParams.brand,
-            page: searchParams.page,
-            limit: searchParams.limit,
+            page: 1,
+            limit: 100,
+            sortBy: 'distance',
           }
         );
         
@@ -94,19 +152,30 @@ const DealershipsPage: React.FC = () => {
         }
       }
       
-      // Update search results after map center is set
-      setSearchResults(results);
-      setSearchRadius(searchParams.radius);
+      // Cache all results
+      setCachedDealerships(results.dealerships);
+      
+      // Reset pagination and sorting state for new search
+      setCurrentPage(1);
+      setCurrentSortBy('distance');
+      
+      setSearchRadius(searchParams.radius || 10);
       setSelectedDealership(null);
       
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'An error occurred while searching';
       setError(errorMessage);
       setSearchResults(null);
+      setCachedDealerships([]);
     } finally {
       setLoading(false);
     }
   }, []);
+
+  // Update displayed results when cache or display settings change
+  useEffect(() => {
+    updateDisplayedResults();
+  }, [updateDisplayedResults]);
 
   // Handle URL parameters for initial search
   useEffect(() => {
@@ -158,7 +227,35 @@ const DealershipsPage: React.FC = () => {
     });
   };
 
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
+    // Display will update automatically via useEffect
+  };
+
+  const handleSortChange = (sortBy: string) => {
+    setCurrentSortBy(sortBy);
+    setCurrentPage(1); // Reset to first page when sorting changes
+    // Display will update automatically via useEffect
+  };
+
+  const handlePageSizeChange = (pageSize: number) => {
+    setCurrentPageSize(pageSize);
+    setCurrentPage(1); // Reset to first page when page size changes
+    // Display will update automatically via useEffect
+  };
+
   const hasResults = searchResults && searchResults.dealerships.length > 0;
+  
+  // Create map results with all cached dealerships (not paginated)
+  const mapResults = cachedDealerships.length > 0 ? {
+    dealerships: cachedDealerships,
+    pagination: {
+      page: 1,
+      limit: cachedDealerships.length,
+      total: cachedDealerships.length,
+      hasNext: false,
+    },
+  } : null;
 
   return (
     <Container maxWidth="xl" sx={{ py: 4 }}>
@@ -195,7 +292,7 @@ const DealershipsPage: React.FC = () => {
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
               {/* Map View Section */}
               <MapViewSection
-                searchResults={searchResults}
+                searchResults={mapResults}
                 mapCenter={mapCenter}
                 searchRadius={searchRadius}
                 selectedDealership={selectedDealership}
@@ -210,6 +307,11 @@ const DealershipsPage: React.FC = () => {
                 onDealershipSelect={handleDealershipSelect}
                 loading={loading}
                 error={error}
+                onPageChange={handlePageChange}
+                onSortChange={handleSortChange}
+                onPageSizeChange={handlePageSizeChange}
+                sortBy={currentSortBy}
+                pageSize={currentPageSize}
               />
             </Box>
           ) : (

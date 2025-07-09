@@ -33,9 +33,9 @@ const router = Router();
 // GET /api/dealerships/search - Search dealerships by location
 router.get('/search', async (req: Request, res: Response) => {
   try {
-    const { location, lat, lng, radius, brand, page = 1, limit = 50 } = req.query;
+    const { location, lat, lng, radius, brand, page = 1, limit = 100, sortBy = 'distance' } = req.query;
     
-    logger.info('Dealership search request', { location, lat, lng, radius, brand, page, limit });
+    logger.info('Dealership search request', { location, lat, lng, radius, brand, page, limit, sortBy });
     
     // Search dealerships using Google Places API
     const searchParams = {
@@ -44,6 +44,7 @@ router.get('/search', async (req: Request, res: Response) => {
       longitude: lng ? parseFloat(lng as string) : undefined,
       radius: radius ? parseInt(radius as string) : 10,
       brand: brand as string,
+      limit: parseInt(limit as string),
     };
 
     const googleResults = await googlePlacesService.searchDealerships(searchParams);
@@ -63,9 +64,30 @@ router.get('/search', async (req: Request, res: Response) => {
       return dealership;
     });
 
-    // Sort by distance if coordinates were provided
-    if (searchParams.latitude && searchParams.longitude) {
-      dealerships.sort((a, b) => (a.distance || 0) - (b.distance || 0));
+    // Apply sorting
+    const sortOption = sortBy as string;
+    switch (sortOption) {
+      case 'distance':
+        if (searchParams.latitude && searchParams.longitude) {
+          dealerships.sort((a, b) => (a.distance || 0) - (b.distance || 0));
+        }
+        break;
+      case 'rating':
+        dealerships.sort((a, b) => (b.googleRating || 0) - (a.googleRating || 0));
+        break;
+      case 'reviews':
+        dealerships.sort((a, b) => (b.googleReviewCount || 0) - (a.googleReviewCount || 0));
+        break;
+      case 'name':
+        dealerships.sort((a, b) => a.name.localeCompare(b.name));
+        break;
+      default:
+        // Default to distance if coordinates available, otherwise name
+        if (searchParams.latitude && searchParams.longitude) {
+          dealerships.sort((a, b) => (a.distance || 0) - (b.distance || 0));
+        } else {
+          dealerships.sort((a, b) => a.name.localeCompare(b.name));
+        }
     }
 
     // Apply pagination

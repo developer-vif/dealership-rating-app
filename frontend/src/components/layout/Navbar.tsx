@@ -99,7 +99,7 @@ const Navbar: React.FC = () => {
                     startIcon={
                       user?.picture ? (
                         <Avatar
-                          src={user.picture || undefined}
+                          src={user.picture}
                           sx={{ width: 24, height: 24 }}
                         />
                       ) : (
@@ -133,10 +133,16 @@ const Navbar: React.FC = () => {
                     anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
                   >
                     <MenuItem onClick={handleUserMenuClose}>
-                      <Avatar
-                        src={user?.picture || undefined}
-                        sx={{ width: 32, height: 32, mr: 1 }}
-                      />
+                      {user?.picture ? (
+                        <Avatar
+                          src={user.picture}
+                          sx={{ width: 32, height: 32, mr: 1 }}
+                        />
+                      ) : (
+                        <Avatar sx={{ width: 32, height: 32, mr: 1 }}>
+                          <AccountCircle />
+                        </Avatar>
+                      )}
                       <Box>
                         <Typography variant="subtitle1">{user?.name}</Typography>
                         <Typography variant="body2" color="textSecondary">

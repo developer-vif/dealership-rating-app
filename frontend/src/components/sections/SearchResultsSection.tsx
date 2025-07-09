@@ -9,6 +9,11 @@ interface SearchResultsSectionProps {
   onDealershipSelect: (dealership: Dealership) => void;
   loading?: boolean;
   error?: string | null;
+  onPageChange?: (page: number) => void;
+  onSortChange?: (sortBy: string) => void;
+  onPageSizeChange?: (pageSize: number) => void;
+  sortBy?: string;
+  pageSize?: number;
 }
 
 const SearchResultsSection: React.FC<SearchResultsSectionProps> = ({
@@ -17,6 +22,11 @@ const SearchResultsSection: React.FC<SearchResultsSectionProps> = ({
   onDealershipSelect,
   loading = false,
   error = null,
+  onPageChange,
+  onSortChange,
+  onPageSizeChange,
+  sortBy = 'distance',
+  pageSize = 10,
 }) => {
   return (
     <Paper sx={{ p: 2 }}>
@@ -24,7 +34,7 @@ const SearchResultsSection: React.FC<SearchResultsSectionProps> = ({
         Search Results
         {searchResults && searchResults.dealerships.length > 0 && (
           <Typography component="span" variant="body2" sx={{ ml: 1, color: 'text.secondary' }}>
-            ({searchResults.dealerships.length} dealerships found)
+            ({searchResults.pagination.total} dealerships found)
           </Typography>
         )}
       </Typography>
@@ -34,6 +44,11 @@ const SearchResultsSection: React.FC<SearchResultsSectionProps> = ({
         error={error}
         onDealershipSelect={onDealershipSelect}
         selectedDealership={selectedDealership}
+        {...(onPageChange && { onPageChange })}
+        {...(onSortChange && { onSortChange })}
+        {...(onPageSizeChange && { onPageSizeChange })}
+        sortBy={sortBy}
+        pageSize={pageSize}
       />
     </Paper>
   );

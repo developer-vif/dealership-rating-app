@@ -41,6 +41,7 @@ export interface SearchDealershipsParams {
   longitude?: number;
   radius?: number;
   brand?: string;
+  limit?: number;
 }
 
 class GooglePlacesService {
@@ -55,7 +56,8 @@ class GooglePlacesService {
       const searchParams: any = {
         key: googleMapsApiKey!,
         query,
-        // Remove specific type to allow both car and motorcycle dealers
+        // Remove pageSize parameter as it's not officially supported in Text Search
+        // Google Places API typically returns up to 20 results per request by default
       };
 
       // Prioritize coordinates over location string for more accurate radius-based search
@@ -92,18 +94,111 @@ class GooglePlacesService {
         throw new Error('Either location string or coordinates must be provided');
       }
 
-      logger.info('Searching dealerships with Google Places API', { searchParams });
+      // Determine how many results we need (up to 100 max for our app)
+      const desiredLimit = Math.min(params.limit || 100, 100);
+      let allResults: GooglePlaceResult[] = [];
+      let nextPageToken: string | undefined;
+      let pageCount = 0;
+      const maxPages = 5; // Fetch up to 5 pages to get 100 results (20 per page)
 
-      const response = await client.textSearch({
-        params: searchParams,
+      logger.info('Starting recursive dealership search with Google Places API', { 
+        query,
+        desiredLimit, 
+        maxPages,
+        hasCoordinates: !!(params.latitude && params.longitude)
       });
 
-      if (response.data.status !== 'OK') {
-        logger.error('Google Places API error', { status: response.data.status });
-        throw new Error(`Google Places API error: ${response.data.status}`);
-      }
+      do {
+        pageCount++;
+        
+        // Add page token for subsequent requests
+        if (nextPageToken) {
+          searchParams.pageToken = nextPageToken;
+          // Remove location params for subsequent requests to avoid conflicts
+          delete searchParams.location;
+          delete searchParams.radius;
+        }
 
-      return response.data.results as GooglePlaceResult[];
+        logger.info(`Making Google Places API request`, {
+          pageCount,
+          hasPageToken: !!nextPageToken,
+          searchParams: { ...searchParams, key: '[REDACTED]' }
+        });
+
+        const response = await client.textSearch({
+          params: searchParams,
+        });
+
+        logger.info(`Google Places API response`, {
+          status: response.data.status,
+          resultCount: response.data.results?.length || 0,
+          hasNextPageToken: !!response.data.next_page_token,
+          pageCount
+        });
+
+        if (response.data.status !== 'OK' && response.data.status !== 'ZERO_RESULTS') {
+          logger.error('Google Places API error', { 
+            status: response.data.status, 
+            pageCount,
+            error_message: response.data.error_message 
+          });
+          
+          // Don't throw error on first request failure, but break the loop
+          if (pageCount === 1) {
+            throw new Error(`Google Places API error: ${response.data.status}`);
+          }
+          break;
+        }
+
+        // Handle zero results
+        if (response.data.status === 'ZERO_RESULTS') {
+          logger.info('No more results available from Google Places API');
+          break;
+        }
+
+        // Add results from this page
+        const pageResults = response.data.results as GooglePlaceResult[];
+        allResults = [...allResults, ...pageResults];
+        
+        // Get next page token if available
+        nextPageToken = response.data.next_page_token;
+        
+        logger.info(`Page ${pageCount} completed`, {
+          resultsThisPage: pageResults.length,
+          totalResultsSoFar: allResults.length,
+          hasNextPage: !!nextPageToken,
+          nextPageToken: nextPageToken ? 'present' : 'none'
+        });
+
+        // Check if we have enough results or no more pages
+        if (allResults.length >= desiredLimit || !nextPageToken || pageCount >= maxPages) {
+          break;
+        }
+
+        // Google requires a short delay between paginated requests (increased to 3 seconds)
+        logger.info('Waiting 3 seconds before next page request...');
+        await new Promise(resolve => setTimeout(resolve, 3000));
+        
+      } while (nextPageToken && pageCount < maxPages);
+
+      // Remove duplicates based on place_id
+      const uniqueResults = allResults.filter((result, index, self) => 
+        index === self.findIndex(r => r.place_id === result.place_id)
+      );
+      
+      // Return up to the desired limit
+      const finalResults = uniqueResults.slice(0, desiredLimit);
+      
+      logger.info('Search completed', {
+        totalPagesRequested: pageCount,
+        totalResultsFound: allResults.length,
+        uniqueResultsFound: uniqueResults.length,
+        resultsReturned: finalResults.length,
+        desiredLimit,
+        duplicatesRemoved: allResults.length - uniqueResults.length
+      });
+
+      return finalResults;
     } catch (error) {
       logger.error('Error searching dealerships', { error: error instanceof Error ? error.message : 'Unknown error' });
       throw new Error('Failed to search dealerships with Google Places API');
