@@ -11,6 +11,7 @@ import { useSearchParams } from 'react-router-dom';
 import SearchForm from '../components/search/SearchForm';
 import MapViewSection from '../components/sections/MapViewSection';
 import SearchResultsSection from '../components/sections/SearchResultsSection';
+import DealerDetailsDialog from '../components/dealership/DealerDetailsDialog';
 import useGeolocation from '../hooks/useGeolocation';
 import dealershipService from '../services/dealershipService';
 import { getCurrentLocationName } from '../utils/locationUtils';
@@ -30,6 +31,10 @@ const DealershipsPage: React.FC = () => {
   const [mapCenter, setMapCenter] = useState({ lat: 14.5995, lng: 120.9842 }); // Default to Manila
   const [searchRadius, setSearchRadius] = useState(10);
   const [initialSearchPerformed, setInitialSearchPerformed] = useState(false);
+  
+  // Dialog state
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [dialogDealership, setDialogDealership] = useState<Dealership | null>(null);
 
   const [searchParams] = useSearchParams();
   const { position, error: geoError } = useGeolocation();
@@ -145,6 +150,16 @@ const DealershipsPage: React.FC = () => {
     });
   };
 
+  const handleDealershipClick = (dealership: Dealership) => {
+    setDialogDealership(dealership);
+    setDialogOpen(true);
+  };
+
+  const handleDialogClose = () => {
+    setDialogOpen(false);
+    setDialogDealership(null);
+  };
+
   const hasResults = dealerships.length > 0;
   
   const searchResultsForChildren: SearchResponse | null = hasResults
@@ -202,6 +217,7 @@ const DealershipsPage: React.FC = () => {
                 searchResults={searchResultsForChildren}
                 selectedDealership={selectedDealership}
                 onDealershipSelect={handleDealershipSelect}
+                onDealershipClick={handleDealershipClick}
                 loading={loading}
                 error={error}
                 onLoadMore={handleLoadMore}
@@ -244,6 +260,13 @@ const DealershipsPage: React.FC = () => {
           )}
         </Grid>
       </Grid>
+
+      {/* Dealer Details Dialog */}
+      <DealerDetailsDialog
+        open={dialogOpen}
+        onClose={handleDialogClose}
+        dealership={dialogDealership}
+      />
     </Container>
   );
 };

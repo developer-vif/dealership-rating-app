@@ -7,6 +7,7 @@ interface SearchResultsSectionProps {
   searchResults: SearchResponse | null;
   selectedDealership: Dealership | null;
   onDealershipSelect: (dealership: Dealership) => void;
+  onDealershipClick?: (dealership: Dealership) => void;
   loading: boolean;
   error: string | null;
   onLoadMore: () => void;
@@ -17,6 +18,7 @@ const SearchResultsSection: React.FC<SearchResultsSectionProps> = ({
   searchResults,
   selectedDealership,
   onDealershipSelect,
+  onDealershipClick,
   loading,
   error,
   onLoadMore,
@@ -33,6 +35,7 @@ const SearchResultsSection: React.FC<SearchResultsSectionProps> = ({
         dealerships={searchResults?.dealerships || []}
         selectedDealership={selectedDealership}
         onDealershipSelect={onDealershipSelect}
+        {...(onDealershipClick && { onDealershipClick })}
         onLoadMore={onLoadMore}
         hasNextPage={hasNextPage}
       />

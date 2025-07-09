@@ -15,19 +15,11 @@ CREATE TABLE IF NOT EXISTS users (
     updated_at TIMESTAMP DEFAULT NOW()
 );
 
--- Dealerships table (cached from Google Places)
+-- Dealerships table (simplified)
 CREATE TABLE IF NOT EXISTS dealerships (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     google_place_id VARCHAR(255) UNIQUE NOT NULL,
     name VARCHAR(255) NOT NULL,
-    address TEXT NOT NULL,
-    phone VARCHAR(50),
-    website VARCHAR(512),
-    latitude DECIMAL(10, 8),
-    longitude DECIMAL(11, 8),
-    google_rating DECIMAL(2, 1),
-    google_review_count INTEGER,
-    last_synced TIMESTAMP DEFAULT NOW(),
     created_at TIMESTAMP DEFAULT NOW()
 );
 
@@ -59,17 +51,65 @@ CREATE TABLE IF NOT EXISTS review_votes (
     UNIQUE(review_id, user_id)
 );
 
--- Indexes for performance
-CREATE INDEX IF NOT EXISTS idx_dealerships_location ON dealerships(latitude, longitude);
+-- Indexes for performance (removed location index since we don't have lat/lng)
 CREATE INDEX IF NOT EXISTS idx_reviews_dealership ON reviews(dealership_id);
 CREATE INDEX IF NOT EXISTS idx_reviews_user ON reviews(user_id);
 CREATE INDEX IF NOT EXISTS idx_reviews_rating ON reviews(rating);
 CREATE INDEX IF NOT EXISTS idx_review_votes_review ON review_votes(review_id);
 
--- Insert sample data for testing
-INSERT INTO dealerships (google_place_id, name, address, phone, website, latitude, longitude, google_rating, google_review_count) 
+-- Insert sample data for testing (simplified)
+INSERT INTO dealerships (google_place_id, name) 
 VALUES 
-    ('ChIJ1234567890', 'Sunset Toyota', '1234 Sunset Blvd, Los Angeles, CA 90028', '(555) 123-4567', 'www.sunsettoyota.com', 34.0928, -118.3287, 4.8, 324),
-    ('ChIJ0987654321', 'Metro Honda', '9876 Wilshire Blvd, Beverly Hills, CA 90210', '(555) 987-6543', 'www.metrohonda.com', 34.0696, -118.4006, 4.5, 189),
-    ('ChIJ1122334455', 'AutoMax Used Cars', '555 Main St, Santa Monica, CA 90401', '(555) 555-0123', 'www.automax.com', 34.0195, -118.4912, 4.2, 97)
+    ('ChIJ1234567890', 'Sunset Toyota'),
+    ('ChIJ0987654321', 'Metro Honda'),
+    ('ChIJ1122334455', 'AutoMax Used Cars')
 ON CONFLICT (google_place_id) DO NOTHING;
+
+-- Insert sample user for testing
+INSERT INTO users (id, google_id, email, name, avatar_url) 
+VALUES 
+    ('550e8400-e29b-41d4-a716-446655440000', 'mock_google_123', 'testuser@example.com', 'Test User', 'https://via.placeholder.com/40x40?text=TU'),
+    ('550e8400-e29b-41d4-a716-446655440001', 'mock_google_456', 'sarah.m@example.com', 'Sarah M.', 'https://via.placeholder.com/40x40?text=SM'),
+    ('550e8400-e29b-41d4-a716-446655440002', 'mock_google_789', 'john.l@example.com', 'John L.', 'https://via.placeholder.com/40x40?text=JL')
+ON CONFLICT (google_id) DO NOTHING;
+
+-- Insert sample reviews for testing
+INSERT INTO reviews (user_id, dealership_id, rating, title, content, receipt_processing_time, plates_processing_time, visit_date, is_verified, helpful_votes) 
+VALUES 
+    (
+        '550e8400-e29b-41d4-a716-446655440001', 
+        (SELECT id FROM dealerships WHERE google_place_id = 'ChIJ1234567890'),
+        5,
+        'Amazing experience buying my first car!',
+        'Just bought my first car here and the staff was incredibly helpful. No pressure sales tactics and they explained everything clearly. The financing process was smooth and they got me a great rate.',
+        'same-day',
+        '1-week',
+        '2024-01-15',
+        true,
+        12
+    ),
+    (
+        '550e8400-e29b-41d4-a716-446655440002', 
+        (SELECT id FROM dealerships WHERE google_place_id = 'ChIJ1234567890'),
+        5,
+        'Excellent service department',
+        'Been bringing my Camry here for service for 3 years now. They always explain what needs to be done and why. No upselling or pressure for unnecessary work.',
+        'same-day',
+        'same-day',
+        '2024-01-10',
+        false,
+        8
+    ),
+    (
+        '550e8400-e29b-41d4-a716-446655440001', 
+        (SELECT id FROM dealerships WHERE google_place_id = 'ChIJ0987654321'),
+        4,
+        'Good experience overall',
+        'Bought a used Prius here last month. The car was in great condition and priced fairly. Sales process took a bit longer than expected.',
+        '1-week',
+        '2-weeks',
+        '2024-01-05',
+        true,
+        5
+    )
+ON CONFLICT (user_id, dealership_id) DO NOTHING;

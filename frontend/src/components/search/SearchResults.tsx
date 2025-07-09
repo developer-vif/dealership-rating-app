@@ -18,6 +18,7 @@ interface SearchResultsProps {
   hasNextPage: boolean;
   onLoadMore: () => void;
   onDealershipSelect?: (dealership: Dealership) => void;
+  onDealershipClick?: (dealership: Dealership) => void;
   selectedDealership?: Dealership | null;
 }
 
@@ -28,6 +29,7 @@ const SearchResults: React.FC<SearchResultsProps> = ({
   hasNextPage,
   onLoadMore,
   onDealershipSelect,
+  onDealershipClick,
   selectedDealership,
 }) => {
 
@@ -89,7 +91,12 @@ const SearchResults: React.FC<SearchResultsProps> = ({
           <Grid item xs={12} sm={6} lg={4} key={`${dealership.id}-${index}`}>
             <DealershipCard
               dealership={dealership}
-              onClick={() => onDealershipSelect?.(dealership)}
+              onClick={() => {
+                // Handle map selection (hover effect)
+                onDealershipSelect?.(dealership);
+                // Handle dialog opening (click effect)
+                onDealershipClick?.(dealership);
+              }}
               selected={selectedDealership?.id === dealership.id}
             />
           </Grid>

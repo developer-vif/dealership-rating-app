@@ -50,13 +50,29 @@ export interface NearbyDealership {
 
 export interface DealershipReview {
   id: string;
-  dealershipId: string;
   userId: string;
+  userName: string;
+  userAvatar: string;
   rating: number;
-  comment: string;
+  title: string;
+  content: string;
+  receiptProcessingTime: string;
+  platesProcessingTime: string;
+  visitDate: string;
+  isVerified: boolean;
+  helpfulVotes: number;
+  unhelpfulVotes: number;
+  tags: string[];
   createdAt: string;
-  user: {
-    name: string;
-    avatarUrl?: string;
+  updatedAt: string;
+}
+
+export interface ReviewsPaginatedResponse {
+  reviews: DealershipReview[];
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    hasNext: boolean;
   };
 }

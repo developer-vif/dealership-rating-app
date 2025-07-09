@@ -8,6 +8,7 @@ import dotenv from 'dotenv';
 import { logger } from './utils/logger';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler';
 import { requestLogger } from './middleware/requestLogger';
+import { testConnection } from './utils/database';
 import authRoutes from './routes/auth';
 import dealershipRoutes from './routes/dealerships';
 import reviewRoutes from './routes/reviews';
@@ -76,9 +77,16 @@ app.use(errorHandler);
 
 // Start server
 if (process.env['NODE_ENV'] !== 'test') {
-  app.listen(PORT, () => {
+  app.listen(PORT, async () => {
     logger.info(`Server running on port ${PORT}`);
     logger.info(`Environment: ${process.env['NODE_ENV'] || 'development'}`);
+    
+    // Test database connection
+    const dbConnected = await testConnection();
+    if (!dbConnected) {
+      logger.error('Failed to connect to database');
+      process.exit(1);
+    }
   });
 }
 
