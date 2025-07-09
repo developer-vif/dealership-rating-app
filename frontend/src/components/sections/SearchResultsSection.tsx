@@ -7,48 +7,34 @@ interface SearchResultsSectionProps {
   searchResults: SearchResponse | null;
   selectedDealership: Dealership | null;
   onDealershipSelect: (dealership: Dealership) => void;
-  loading?: boolean;
-  error?: string | null;
-  onPageChange?: (page: number) => void;
-  onSortChange?: (sortBy: string) => void;
-  onPageSizeChange?: (pageSize: number) => void;
-  sortBy?: string;
-  pageSize?: number;
+  loading: boolean;
+  error: string | null;
+  onLoadMore: () => void;
+  hasNextPage: boolean;
 }
 
 const SearchResultsSection: React.FC<SearchResultsSectionProps> = ({
   searchResults,
   selectedDealership,
   onDealershipSelect,
-  loading = false,
-  error = null,
-  onPageChange,
-  onSortChange,
-  onPageSizeChange,
-  sortBy = 'distance',
-  pageSize = 10,
+  loading,
+  error,
+  onLoadMore,
+  hasNextPage,
 }) => {
   return (
-    <Paper sx={{ p: 2 }}>
-      <Typography variant="h6" gutterBottom>
-        Search Results
-        {searchResults && searchResults.dealerships.length > 0 && (
-          <Typography component="span" variant="body2" sx={{ ml: 1, color: 'text.secondary' }}>
-            ({searchResults.pagination.total} dealerships found)
-          </Typography>
-        )}
+    <Paper sx={{ p: 3, backgroundColor: 'grey.50' }}>
+      <Typography variant="h5" component="h2" gutterBottom>
+        Dealerships List
       </Typography>
       <SearchResults
-        results={searchResults}
         loading={loading}
         error={error}
-        onDealershipSelect={onDealershipSelect}
+        dealerships={searchResults?.dealerships || []}
         selectedDealership={selectedDealership}
-        {...(onPageChange && { onPageChange })}
-        {...(onSortChange && { onSortChange })}
-        {...(onPageSizeChange && { onPageSizeChange })}
-        sortBy={sortBy}
-        pageSize={pageSize}
+        onDealershipSelect={onDealershipSelect}
+        onLoadMore={onLoadMore}
+        hasNextPage={hasNextPage}
       />
     </Paper>
   );

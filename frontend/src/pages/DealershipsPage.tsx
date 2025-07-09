@@ -16,13 +16,13 @@ import dealershipService from '../services/dealershipService';
 import { getCurrentLocationName } from '../utils/locationUtils';
 import { Dealership, SearchParams, SearchResponse } from '../types/dealership';
 
-
 const DealershipsPage: React.FC = () => {
-  // Cache state
-  const [cachedDealerships, setCachedDealerships] = useState<Dealership[]>([]);
-  
+  // Search and results state
+  const [dealerships, setDealerships] = useState<Dealership[]>([]);
+  const [currentSearchParams, setCurrentSearchParams] = useState<SearchParams | null>(null);
+  const [nextPageToken, setNextPageToken] = useState<string | null | undefined>(null);
+
   // UI state
-  const [searchResults, setSearchResults] = useState<SearchResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedDealership, setSelectedDealership] = useState<Dealership | null>(null);
@@ -30,152 +30,72 @@ const DealershipsPage: React.FC = () => {
   const [mapCenter, setMapCenter] = useState({ lat: 14.5995, lng: 120.9842 }); // Default to Manila
   const [searchRadius, setSearchRadius] = useState(10);
   const [initialSearchPerformed, setInitialSearchPerformed] = useState(false);
-  
-  // Local filtering/sorting state
-  const [currentSortBy, setCurrentSortBy] = useState('distance');
-  const [currentPageSize, setCurrentPageSize] = useState(10);
-  const [currentPage, setCurrentPage] = useState(1);
 
   const [searchParams] = useSearchParams();
   const { position, error: geoError } = useGeolocation();
 
-  // Local sorting function
-  const sortDealerships = useCallback((dealerships: Dealership[], sortBy: string): Dealership[] => {
-    const sorted = [...dealerships];
-    switch (sortBy) {
-      case 'distance':
-        return sorted.sort((a, b) => (a.distance || 0) - (b.distance || 0));
-      case 'rating':
-        return sorted.sort((a, b) => (b.googleRating || 0) - (a.googleRating || 0));
-      case 'reviews':
-        return sorted.sort((a, b) => (b.googleReviewCount || 0) - (a.googleReviewCount || 0));
-      case 'name':
-        return sorted.sort((a, b) => a.name.localeCompare(b.name));
-      default:
-        return sorted;
-    }
-  }, []);
-
-  // Local pagination function
-  const paginateDealerships = useCallback((dealerships: Dealership[], page: number, pageSize: number) => {
-    const startIndex = (page - 1) * pageSize;
-    const endIndex = startIndex + pageSize;
-    const paginatedDealerships = dealerships.slice(startIndex, endIndex);
-    
-    return {
-      dealerships: paginatedDealerships,
-      pagination: {
-        page,
-        limit: pageSize,
-        total: dealerships.length,
-        hasNext: endIndex < dealerships.length,
-      },
-    };
-  }, []);
-
-  // Update displayed results based on cached data
-  const updateDisplayedResults = useCallback(() => {
-    if (cachedDealerships.length === 0) {
-      setSearchResults(null);
-      return;
-    }
-
-    const sortedDealerships = sortDealerships(cachedDealerships, currentSortBy);
-    const paginatedResults = paginateDealerships(sortedDealerships, currentPage, currentPageSize);
-    
-    setSearchResults(paginatedResults);
-  }, [cachedDealerships, currentSortBy, currentPage, currentPageSize, sortDealerships, paginateDealerships]);
-
-  const handleSearch = useCallback(async (inputParams: SearchParams) => {
-    // Validate input - require either location string or coordinates (same as SearchForm logic)
-    if (!inputParams.location?.trim() && !(inputParams.latitude && inputParams.longitude)) {
-      setError('Please provide a location or coordinates to search');
-      return;
-    }
-
+  const executeSearch = useCallback(async (params: SearchParams, isLoadMore = false) => {
     setLoading(true);
-    setError(null);
-    
+    if (!isLoadMore) {
+      setError(null);
+    }
+
     try {
-      // Normalize parameters similar to SearchForm logic
-      const searchParams: SearchParams = {
-        radius: inputParams.radius || 10,
-        brand: inputParams.brand === 'All Brands' ? undefined : inputParams.brand,
-        page: 1, // Always start at page 1 for new searches
-        limit: 100, // Always fetch all results for caching
-        sortBy: 'distance', // Default sort for API call
-      };
-
-      // Prioritize location string over coordinates (same as SearchForm)
-      if (inputParams.location?.trim()) {
-        searchParams.location = inputParams.location.trim();
-      } else if (inputParams.latitude && inputParams.longitude) {
-        searchParams.latitude = inputParams.latitude;
-        searchParams.longitude = inputParams.longitude;
-      }
-
       let results: SearchResponse;
-      
-      if (searchParams.latitude && searchParams.longitude) {
-        // Search by coordinates
+      if (params.latitude && params.longitude) {
         results = await dealershipService.searchDealershipsByLocation(
-          searchParams.latitude,
-          searchParams.longitude,
-          {
-            radius: searchParams.radius || 10,
-            brand: searchParams.brand,
-            page: 1,
-            limit: 100,
-            sortBy: 'distance',
-          }
+          params.latitude,
+          params.longitude,
+          params
         );
-        
-        setMapCenter({
-          lat: searchParams.latitude,
-          lng: searchParams.longitude,
-        });
       } else {
-        // Search by location string
-        results = await dealershipService.searchDealerships(searchParams);
-        
-        // Calculate map center from search results
-        if (results.dealerships.length > 0) {
-          const dealershipsForCenter = results.dealerships.slice(0, 5);
-          const avgLat = dealershipsForCenter.reduce((sum, d) => sum + d.latitude, 0) / dealershipsForCenter.length;
-          const avgLng = dealershipsForCenter.reduce((sum, d) => sum + d.longitude, 0) / dealershipsForCenter.length;
-          
-          // Update map center for location-based searches
-          setMapCenter({
-            lat: avgLat,
-            lng: avgLng,
-          });
-        }
+        results = await dealershipService.searchDealerships(params);
       }
-      
-      // Cache all results
-      setCachedDealerships(results.dealerships);
-      
-      // Reset pagination and sorting state for new search
-      setCurrentPage(1);
-      setCurrentSortBy('distance');
-      
-      setSearchRadius(searchParams.radius || 10);
-      setSelectedDealership(null);
-      
+
+      setDealerships(prev => isLoadMore ? [...prev, ...results.dealerships] : results.dealerships);
+      setNextPageToken(results.nextPageToken);
+
+      // Update map center on the first page of results
+      if (!isLoadMore && results.dealerships.length > 0) {
+        const firstResult = results.dealerships[0];
+        setMapCenter({ lat: firstResult.latitude, lng: firstResult.longitude });
+      }
+
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'An error occurred while searching';
       setError(errorMessage);
-      setSearchResults(null);
-      setCachedDealerships([]);
+      if (!isLoadMore) {
+        setDealerships([]);
+        setNextPageToken(null);
+      }
     } finally {
       setLoading(false);
     }
   }, []);
 
-  // Update displayed results when cache or display settings change
-  useEffect(() => {
-    updateDisplayedResults();
-  }, [updateDisplayedResults]);
+  const handleSearch = useCallback(async (inputParams: SearchParams) => {
+    if (!inputParams.location?.trim() && !(inputParams.latitude && inputParams.longitude)) {
+      setError('Please provide a location or coordinates to search');
+      return;
+    }
+
+    const params: SearchParams = {
+      ...inputParams,
+      brand: inputParams.brand === 'All Brands' ? undefined : inputParams.brand,
+    };
+
+    setCurrentSearchParams(params);
+    setSearchRadius(params.radius || 10);
+    setSelectedDealership(null);
+    executeSearch(params, false);
+  }, [executeSearch]);
+
+  const handleLoadMore = useCallback(() => {
+    if (!loading && nextPageToken && currentSearchParams) {
+      const nextParams = { ...currentSearchParams, pageToken: nextPageToken };
+      executeSearch(nextParams, true);
+    }
+  }, [loading, nextPageToken, currentSearchParams, executeSearch]);
 
   // Handle URL parameters for initial search
   useEffect(() => {
@@ -219,43 +139,20 @@ const DealershipsPage: React.FC = () => {
 
   const handleDealershipSelect = (dealership: Dealership) => {
     setSelectedDealership(dealership);
-    
-    // Update map center to selected dealership
     setMapCenter({
       lat: dealership.latitude,
       lng: dealership.longitude,
     });
   };
 
-  const handlePageChange = (page: number) => {
-    setCurrentPage(page);
-    // Display will update automatically via useEffect
-  };
-
-  const handleSortChange = (sortBy: string) => {
-    setCurrentSortBy(sortBy);
-    setCurrentPage(1); // Reset to first page when sorting changes
-    // Display will update automatically via useEffect
-  };
-
-  const handlePageSizeChange = (pageSize: number) => {
-    setCurrentPageSize(pageSize);
-    setCurrentPage(1); // Reset to first page when page size changes
-    // Display will update automatically via useEffect
-  };
-
-  const hasResults = searchResults && searchResults.dealerships.length > 0;
+  const hasResults = dealerships.length > 0;
   
-  // Create map results with all cached dealerships (not paginated)
-  const mapResults = cachedDealerships.length > 0 ? {
-    dealerships: cachedDealerships,
-    pagination: {
-      page: 1,
-      limit: cachedDealerships.length,
-      total: cachedDealerships.length,
-      hasNext: false,
-    },
-  } : null;
+  const searchResultsForChildren: SearchResponse | null = hasResults
+    ? { 
+        dealerships, 
+        ...(nextPageToken && { nextPageToken }) 
+      }
+    : null;
 
   return (
     <Container maxWidth="xl" sx={{ py: 4 }}>
@@ -292,7 +189,7 @@ const DealershipsPage: React.FC = () => {
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
               {/* Map View Section */}
               <MapViewSection
-                searchResults={mapResults}
+                searchResults={searchResultsForChildren}
                 mapCenter={mapCenter}
                 searchRadius={searchRadius}
                 selectedDealership={selectedDealership}
@@ -302,16 +199,13 @@ const DealershipsPage: React.FC = () => {
 
               {/* Search Results Section */}
               <SearchResultsSection
-                searchResults={searchResults}
+                searchResults={searchResultsForChildren}
                 selectedDealership={selectedDealership}
                 onDealershipSelect={handleDealershipSelect}
                 loading={loading}
                 error={error}
-                onPageChange={handlePageChange}
-                onSortChange={handleSortChange}
-                onPageSizeChange={handlePageSizeChange}
-                sortBy={currentSortBy}
-                pageSize={currentPageSize}
+                onLoadMore={handleLoadMore}
+                hasNextPage={!!nextPageToken}
               />
             </Box>
           ) : (

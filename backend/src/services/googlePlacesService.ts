@@ -1,5 +1,8 @@
-import { Client, PlaceInputType } from '@googlemaps/google-maps-services-js';
+import { Client, TextSearchRequestParams } from '@googlemaps/google-maps-services-js';
+import axios from 'axios';
 import { logger } from '../utils/logger';
+
+// --- Configuration and Constants ---
 
 const googleMapsApiKey = process.env.GOOGLE_MAPS_API_KEY;
 
@@ -8,7 +11,55 @@ if (!googleMapsApiKey) {
   throw new Error('Google Maps API key is required');
 }
 
-const client = new Client({});
+const DEFAULT_SEARCH_RADIUS_KM = 10;
+
+const COMMON_CAR_BRANDS = [
+  'Toyota', 'Honda', 'Ford', 'Chevrolet', 'Nissan', 'Hyundai', 'Kia',
+  'Subaru', 'Mazda', 'Volkswagen', 'BMW', 'Mercedes-Benz', 'Audi',
+  'Lexus', 'Acura', 'Infiniti', 'Cadillac', 'Lincoln', 'Buick',
+  'GMC', 'Ram', 'Jeep', 'Dodge', 'Chrysler', 'Mitsubishi', 'Volvo',
+  'Tesla', 'Porsche', 'Jaguar', 'Land Rover', 'Mini', 'Fiat',
+];
+
+// --- Client Initialization ---
+
+// Configure a client instance to automatically include the API key
+const client = new Client({
+  axiosInstance: axios.create({
+    params: {
+      key: googleMapsApiKey,
+    },
+  }),
+});
+
+// --- Type Definitions ---
+
+// Replicating frontend types to avoid cross-package imports
+export interface DealershipHours {
+  monday: string;
+  tuesday: string;
+  wednesday: string;
+  thursday: string;
+  friday: string;
+  saturday: string;
+  sunday: string;
+}
+
+export interface Dealership {
+  id: string;
+  googlePlaceId: string;
+  name: string;
+  address: string;
+  phone: string;
+  website?: string;
+  latitude: number;
+  longitude: number;
+  googleRating: number;
+  googleReviewCount: number;
+  brands: string[];
+  hours: DealershipHours;
+  photos?: string[];
+}
 
 export interface GooglePlaceResult {
   place_id: string;
@@ -41,164 +92,82 @@ export interface SearchDealershipsParams {
   longitude?: number;
   radius?: number;
   brand?: string;
-  limit?: number;
+  pageToken?: string;
+}
+
+export interface DealershipSearchResult {
+  results: GooglePlaceResult[];
+  nextPageToken?: string;
 }
 
 class GooglePlacesService {
-  async searchDealerships(params: SearchDealershipsParams): Promise<GooglePlaceResult[]> {
+  async searchDealerships(params: SearchDealershipsParams): Promise<DealershipSearchResult> {
     try {
-      let query = 'car dealership OR motorcycle dealership';
-      
-      if (params.brand) {
-        query = `${params.brand} dealership`;
+      const searchParams: Partial<TextSearchRequestParams> = {};
+
+      // If a pageToken is provided, use it to fetch the next page.
+      // Otherwise, perform a new search based on location/query.
+      if (params.pageToken) {
+        searchParams.pagetoken = params.pageToken;
+        logger.info('Fetching next page of results', { pageToken: params.pageToken });
+      } else {
+        let query = 'car dealership OR motorcycle dealership';
+        if (params.brand) {
+          query = `${params.brand} dealership`;
+        }
+        searchParams.query = query;
+
+        // Prioritize coordinates over location string for more accurate radius-based search
+        if (params.latitude && params.longitude) {
+          searchParams.location = `${params.latitude},${params.longitude}`;
+          searchParams.radius = (params.radius || DEFAULT_SEARCH_RADIUS_KM) * 1000; // Convert km to meters
+          logger.info('Starting new search using coordinates', { query, latitude: params.latitude, longitude: params.longitude, radius: params.radius });
+        } else if (params.location) {
+          // Geocode the location string first
+          const geocodeResponse = await client.geocode({
+            params: { address: params.location },
+          });
+
+          if (geocodeResponse.data.results.length > 0) {
+            const location = geocodeResponse.data.results[0].geometry.location;
+            searchParams.location = `${location.lat},${location.lng}`;
+            searchParams.radius = (params.radius || DEFAULT_SEARCH_RADIUS_KM) * 1000;
+            logger.info('Starting new search using geocoded location', { query, originalLocation: params.location, radius: params.radius });
+          } else {
+            logger.warn('Could not geocode location', { location: params.location });
+            throw new Error('Could not find coordinates for the provided location.');
+          }
+        } else {
+          logger.warn('No location, coordinates, or pageToken provided for search');
+          throw new Error('Either location/coordinates for a new search or a pageToken for an existing one must be provided');
+        }
       }
 
-      const searchParams: any = {
-        key: googleMapsApiKey!,
-        query,
-        // Remove pageSize parameter as it's not officially supported in Text Search
-        // Google Places API typically returns up to 20 results per request by default
+      logger.info(`Making Google Places API request`, { searchParams });
+
+      const response = await client.textSearch({
+        params: searchParams,
+      });
+
+      logger.info(`Google Places API response`, {
+        status: response.data.status,
+        resultCount: response.data.results?.length || 0,
+        hasNextPageToken: !!response.data.next_page_token,
+      });
+
+      if (response.data.status !== 'OK' && response.data.status !== 'ZERO_RESULTS') {
+        logger.error('Google Places API error', { 
+          status: response.data.status, 
+          error_message: response.data.error_message 
+        });
+        throw new Error(`Google Places API error: ${response.data.status}`);
+      }
+
+      return {
+        results: (response.data.results as GooglePlaceResult[]) || [],
+        nextPageToken: response.data.next_page_token,
       };
 
-      // Prioritize coordinates over location string for more accurate radius-based search
-      if (params.latitude && params.longitude) {
-        searchParams.location = `${params.latitude},${params.longitude}`;
-        searchParams.radius = (params.radius || 10) * 1000; // Convert km to meters
-        logger.info('Using coordinates for search', { 
-          latitude: params.latitude, 
-          longitude: params.longitude, 
-          radius: params.radius 
-        });
-      } else if (params.location) {
-        // Geocode the location string first
-        const geocodeResponse = await client.geocode({
-          params: {
-            address: params.location,
-            key: googleMapsApiKey!,
-          },
-        });
-
-        if (geocodeResponse.data.results.length > 0) {
-          const location = geocodeResponse.data.results[0].geometry.location;
-          searchParams.location = `${location.lat},${location.lng}`;
-          searchParams.radius = (params.radius || 10) * 1000;
-          logger.info('Using geocoded location for search', { 
-            originalLocation: params.location,
-            latitude: location.lat, 
-            longitude: location.lng, 
-            radius: params.radius 
-          });
-        }
-      } else {
-        logger.warn('No location or coordinates provided for search');
-        throw new Error('Either location string or coordinates must be provided');
-      }
-
-      // Determine how many results we need (up to 100 max for our app)
-      const desiredLimit = Math.min(params.limit || 100, 100);
-      let allResults: GooglePlaceResult[] = [];
-      let nextPageToken: string | undefined;
-      let pageCount = 0;
-      const maxPages = 5; // Fetch up to 5 pages to get 100 results (20 per page)
-
-      logger.info('Starting recursive dealership search with Google Places API', { 
-        query,
-        desiredLimit, 
-        maxPages,
-        hasCoordinates: !!(params.latitude && params.longitude)
-      });
-
-      do {
-        pageCount++;
-        
-        // Add page token for subsequent requests
-        if (nextPageToken) {
-          searchParams.pageToken = nextPageToken;
-          // Remove location params for subsequent requests to avoid conflicts
-          delete searchParams.location;
-          delete searchParams.radius;
-        }
-
-        logger.info(`Making Google Places API request`, {
-          pageCount,
-          hasPageToken: !!nextPageToken,
-          searchParams: { ...searchParams, key: '[REDACTED]' }
-        });
-
-        const response = await client.textSearch({
-          params: searchParams,
-        });
-
-        logger.info(`Google Places API response`, {
-          status: response.data.status,
-          resultCount: response.data.results?.length || 0,
-          hasNextPageToken: !!response.data.next_page_token,
-          pageCount
-        });
-
-        if (response.data.status !== 'OK' && response.data.status !== 'ZERO_RESULTS') {
-          logger.error('Google Places API error', { 
-            status: response.data.status, 
-            pageCount,
-            error_message: response.data.error_message 
-          });
-          
-          // Don't throw error on first request failure, but break the loop
-          if (pageCount === 1) {
-            throw new Error(`Google Places API error: ${response.data.status}`);
-          }
-          break;
-        }
-
-        // Handle zero results
-        if (response.data.status === 'ZERO_RESULTS') {
-          logger.info('No more results available from Google Places API');
-          break;
-        }
-
-        // Add results from this page
-        const pageResults = response.data.results as GooglePlaceResult[];
-        allResults = [...allResults, ...pageResults];
-        
-        // Get next page token if available
-        nextPageToken = response.data.next_page_token;
-        
-        logger.info(`Page ${pageCount} completed`, {
-          resultsThisPage: pageResults.length,
-          totalResultsSoFar: allResults.length,
-          hasNextPage: !!nextPageToken,
-          nextPageToken: nextPageToken ? 'present' : 'none'
-        });
-
-        // Check if we have enough results or no more pages
-        if (allResults.length >= desiredLimit || !nextPageToken || pageCount >= maxPages) {
-          break;
-        }
-
-        // Google requires a short delay between paginated requests (increased to 3 seconds)
-        logger.info('Waiting 3 seconds before next page request...');
-        await new Promise(resolve => setTimeout(resolve, 3000));
-        
-      } while (nextPageToken && pageCount < maxPages);
-
-      // Remove duplicates based on place_id
-      const uniqueResults = allResults.filter((result, index, self) => 
-        index === self.findIndex(r => r.place_id === result.place_id)
-      );
-      
-      // Return up to the desired limit
-      const finalResults = uniqueResults.slice(0, desiredLimit);
-      
-      logger.info('Search completed', {
-        totalPagesRequested: pageCount,
-        totalResultsFound: allResults.length,
-        uniqueResultsFound: uniqueResults.length,
-        resultsReturned: finalResults.length,
-        desiredLimit,
-        duplicatesRemoved: allResults.length - uniqueResults.length
-      });
-
-      return finalResults;
     } catch (error) {
       logger.error('Error searching dealerships', { error: error instanceof Error ? error.message : 'Unknown error' });
       throw new Error('Failed to search dealerships with Google Places API');
@@ -212,7 +181,6 @@ class GooglePlacesService {
       const response = await client.placeDetails({
         params: {
           place_id: placeId,
-          key: googleMapsApiKey!,
           fields: [
             'place_id',
             'name',
@@ -241,13 +209,12 @@ class GooglePlacesService {
     }
   }
 
-  async searchNearbyDealerships(latitude: number, longitude: number, radius: number = 10): Promise<GooglePlaceResult[]> {
+  async searchNearbyDealerships(latitude: number, longitude: number, radius: number = DEFAULT_SEARCH_RADIUS_KM): Promise<GooglePlaceResult[]> {
     try {
       logger.info('Searching nearby dealerships with Google Places API', { latitude, longitude, radius });
 
       const response = await client.placesNearby({
         params: {
-          key: googleMapsApiKey!,
           location: `${latitude},${longitude}`,
           radius: radius * 1000, // Convert km to meters
           type: 'car_dealer',
@@ -266,12 +233,12 @@ class GooglePlacesService {
     }
   }
 
-  transformToAppFormat(googlePlace: GooglePlaceResult): any {
+  transformToAppFormat(googlePlace: GooglePlaceResult): Dealership {
     // Extract car brands from place name or types
     const carBrands = this.extractCarBrands(googlePlace.name, googlePlace.types);
 
     // Transform opening hours
-    const hours = googlePlace.opening_hours?.weekday_text ? {
+    const hours: DealershipHours = googlePlace.opening_hours?.weekday_text ? {
       monday: this.parseHours(googlePlace.opening_hours.weekday_text[1]) || 'Closed',
       tuesday: this.parseHours(googlePlace.opening_hours.weekday_text[2]) || 'Closed',
       wednesday: this.parseHours(googlePlace.opening_hours.weekday_text[3]) || 'Closed',
@@ -309,18 +276,10 @@ class GooglePlacesService {
   }
 
   private extractCarBrands(name: string, types: string[]): string[] {
-    const commonBrands = [
-      'Toyota', 'Honda', 'Ford', 'Chevrolet', 'Nissan', 'Hyundai', 'Kia',
-      'Subaru', 'Mazda', 'Volkswagen', 'BMW', 'Mercedes-Benz', 'Audi',
-      'Lexus', 'Acura', 'Infiniti', 'Cadillac', 'Lincoln', 'Buick',
-      'GMC', 'Ram', 'Jeep', 'Dodge', 'Chrysler', 'Mitsubishi', 'Volvo',
-      'Tesla', 'Porsche', 'Jaguar', 'Land Rover', 'Mini', 'Fiat',
-    ];
-
     const foundBrands: string[] = [];
     const nameUpper = name.toUpperCase();
 
-    for (const brand of commonBrands) {
+    for (const brand of COMMON_CAR_BRANDS) {
       if (nameUpper.includes(brand.toUpperCase())) {
         foundBrands.push(brand);
       }
@@ -348,3 +307,4 @@ class GooglePlacesService {
 }
 
 export default new GooglePlacesService();
+

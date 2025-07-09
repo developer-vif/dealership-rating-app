@@ -32,20 +32,12 @@ export interface SearchParams {
   longitude?: number;
   radius?: number;
   brand?: string | undefined;
-  page?: number;
-  limit?: number;
-  sortBy?: string;
-  pageSize?: number;
+  pageToken?: string;
 }
 
 export interface SearchResponse {
   dealerships: Dealership[];
-  pagination: {
-    page: number;
-    limit: number;
-    total: number;
-    hasNext: boolean;
-  };
+  nextPageToken?: string;
 }
 
 export interface NearbyDealership {
@@ -54,4 +46,17 @@ export interface NearbyDealership {
   distance: number;
   rating: number;
   reviewCount: number;
+}
+
+export interface DealershipReview {
+  id: string;
+  dealershipId: string;
+  userId: string;
+  rating: number;
+  comment: string;
+  createdAt: string;
+  user: {
+    name: string;
+    avatarUrl?: string;
+  };
 }

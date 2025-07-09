@@ -2,7 +2,7 @@ import { Router, Request, Response } from 'express';
 import { logger } from '../utils/logger';
 import googlePlacesService from '../services/googlePlacesService';
 
-// Helper function to calculate distance between two coordinates using Haversine formula
+// Helper function to calculate distance remains the same
 const calculateDistance = (
   pos1: { latitude: number; longitude: number },
   pos2: { latitude: number; longitude: number }
@@ -30,30 +30,31 @@ const toRadians = (degrees: number): number => {
 
 const router = Router();
 
-// GET /api/dealerships/search - Search dealerships by location
+// GET /api/dealerships/search - Refactored for "load more" functionality
 router.get('/search', async (req: Request, res: Response) => {
   try {
-    const { location, lat, lng, radius, brand, page = 1, limit = 100, sortBy = 'distance' } = req.query;
+    const { location, lat, lng, radius, brand, pageToken } = req.query;
     
-    logger.info('Dealership search request', { location, lat, lng, radius, brand, page, limit, sortBy });
+    logger.info('Dealership search request', { location, lat, lng, radius, brand, pageToken });
     
-    // Search dealerships using Google Places API
     const searchParams = {
       location: location as string,
       latitude: lat ? parseFloat(lat as string) : undefined,
       longitude: lng ? parseFloat(lng as string) : undefined,
       radius: radius ? parseInt(radius as string) : 10,
       brand: brand as string,
-      limit: parseInt(limit as string),
+      pageToken: pageToken as string,
     };
 
+    // Call the refactored service method
     const googleResults = await googlePlacesService.searchDealerships(searchParams);
     
     // Transform Google Places results to our app format
-    const dealerships = googleResults.map(place => {
+    // Note: We now map over `googleResults.results` instead of `googleResults`
+    const dealerships = googleResults.results.map(place => {
       const dealership = googlePlacesService.transformToAppFormat(place);
       
-      // Add distance calculation if coordinates were provided
+      // Add distance calculation if coordinates were provided for the initial search
       if (searchParams.latitude && searchParams.longitude) {
         dealership.distance = calculateDistance(
           { latitude: searchParams.latitude, longitude: searchParams.longitude },
@@ -64,47 +65,14 @@ router.get('/search', async (req: Request, res: Response) => {
       return dealership;
     });
 
-    // Apply sorting
-    const sortOption = sortBy as string;
-    switch (sortOption) {
-      case 'distance':
-        if (searchParams.latitude && searchParams.longitude) {
-          dealerships.sort((a, b) => (a.distance || 0) - (b.distance || 0));
-        }
-        break;
-      case 'rating':
-        dealerships.sort((a, b) => (b.googleRating || 0) - (a.googleRating || 0));
-        break;
-      case 'reviews':
-        dealerships.sort((a, b) => (b.googleReviewCount || 0) - (a.googleReviewCount || 0));
-        break;
-      case 'name':
-        dealerships.sort((a, b) => a.name.localeCompare(b.name));
-        break;
-      default:
-        // Default to distance if coordinates available, otherwise name
-        if (searchParams.latitude && searchParams.longitude) {
-          dealerships.sort((a, b) => (a.distance || 0) - (b.distance || 0));
-        } else {
-          dealerships.sort((a, b) => a.name.localeCompare(b.name));
-        }
-    }
-
-    // Apply pagination
-    const pageNum = parseInt(page as string);
-    const limitNum = parseInt(limit as string);
-    const startIndex = (pageNum - 1) * limitNum;
-    const endIndex = startIndex + limitNum;
-    const paginatedDealerships = dealerships.slice(startIndex, endIndex);
+    // Server-side sorting and pagination are removed. The frontend will handle sorting
+    // on the currently loaded set, and pagination is replaced by the "load more" button.
 
     res.status(200).json({
       success: true,
-      data: paginatedDealerships,
-      pagination: {
-        page: pageNum,
-        limit: limitNum,
-        total: dealerships.length,
-        hasNext: endIndex < dealerships.length
+      data: {
+        dealerships,
+        nextPageToken: googleResults.nextPageToken,
       },
       meta: {
         requestId: req.headers['x-request-id'] || 'unknown',
@@ -124,14 +92,13 @@ router.get('/search', async (req: Request, res: Response) => {
   }
 });
 
-// GET /api/dealerships/:placeId - Get dealership details
+// GET /api/dealerships/:placeId - Get dealership details (remains the same)
 router.get('/:placeId', async (req: Request, res: Response) => {
   try {
     const { placeId } = req.params;
     
     logger.info('Get dealership details request', { placeId });
     
-    // Get dealership details from Google Places API
     const googleResult = await googlePlacesService.getDealershipDetails(placeId);
     const dealership = googlePlacesService.transformToAppFormat(googleResult);
     
@@ -156,7 +123,7 @@ router.get('/:placeId', async (req: Request, res: Response) => {
   }
 });
 
-// GET /api/dealerships/nearby - Get nearby dealerships
+// GET /api/dealerships/nearby - Get nearby dealerships (remains the same)
 router.get('/nearby', async (req: Request, res: Response) => {
   try {
     const { lat, lng, radius = 10 } = req.query;
@@ -177,18 +144,13 @@ router.get('/nearby', async (req: Request, res: Response) => {
     
     logger.info('Get nearby dealerships request', { latitude, longitude, searchRadius });
     
-    // Search nearby dealerships using Google Places API
     const googleResults = await googlePlacesService.searchNearbyDealerships(
       latitude, 
       longitude, 
       searchRadius
     );
     
-    // Transform to simplified format for nearby results
     const nearbyDealerships = googleResults.map(place => {
-      const fullDealership = googlePlacesService.transformToAppFormat(place);
-      
-      // Calculate distance using Haversine formula
       const distance = calculateDistance(
         { latitude, longitude },
         { latitude: place.geometry.location.lat, longitude: place.geometry.location.lng }

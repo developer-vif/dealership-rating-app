@@ -61,10 +61,10 @@ const MapViewSection: React.FC<MapViewSectionProps> = ({
   return (
     <Paper sx={{ p: 2 }}>
       <Typography variant="h6" gutterBottom>
-        Map View ({searchResults.dealerships.length} dealerships)
+        Map View ({searchResults?.dealerships?.length || 0} dealerships)
       </Typography>
       <DealershipMap
-        dealerships={searchResults.dealerships}
+        dealerships={searchResults?.dealerships || []}
         center={mapCenter}
         radius={searchRadius}
         onDealershipSelect={onDealershipSelect}
