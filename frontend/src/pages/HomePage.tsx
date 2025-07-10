@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   Container,
   Typography,
@@ -10,16 +10,23 @@ import {
   Card,
   CardContent,
   Rating,
-  Chip
+  Chip,
+  CircularProgress,
+  Alert
 } from '@mui/material';
-import { Search, LocationOn, Star } from '@mui/icons-material';
+import { Search, LocationOn } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import useGeolocation from '../hooks/useGeolocation';
-import { getCurrentLocationName } from '../utils/locationUtils';
+import { getCurrentLocationName, formatDistance } from '../utils/locationUtils';
+import dealershipService from '../services/dealershipService';
+import { Dealership, SearchParams } from '../types/dealership';
 
 const HomePage: React.FC = () => {
   const navigate = useNavigate();
-  const [searchValue, setSearchValue] = React.useState('');
+  const [searchValue, setSearchValue] = useState('');
+  const [topRatedDealerships, setTopRatedDealerships] = useState<Dealership[]>([]);
+  const [loadingTopRated, setLoadingTopRated] = useState(false);
+  const [topRatedError, setTopRatedError] = useState<string | null>(null);
   const { position, loading, error } = useGeolocation();
   
   const locationInputRef = useRef<HTMLInputElement>(null);
@@ -78,40 +85,46 @@ const HomePage: React.FC = () => {
     }
   }, [position, loading, error]);
 
+  // Fetch top rated dealerships when search value changes
+  useEffect(() => {
+    if (searchValue && !loading) {
+      fetchTopRatedDealerships(searchValue);
+    }
+  }, [searchValue, loading]);
+
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
     navigate(`/dealerships?location=${encodeURIComponent(searchValue)}&radius=10`);
   };
 
-  const mockRecentReviews = [
-    {
-      id: '1',
-      dealership: 'Sunset Toyota',
-      rating: 5,
-      title: 'Amazing experience at Sunset Toyota',
-      excerpt: 'Just bought my first car here and the staff was incredibly helpful...',
-      author: 'Sarah M.',
-      date: '2 days ago'
-    },
-    {
-      id: '2',
-      dealership: 'Metro Honda',
-      rating: 4,
-      title: 'Good service at Metro Honda',
-      excerpt: 'Service department was quick and efficient. They fixed my AC issue...',
-      author: 'Mike R.',
-      date: '1 week ago'
-    },
-    {
-      id: '3',
-      dealership: 'AutoMax Used Cars',
-      rating: 5,
-      title: 'Excellent used car purchase',
-      excerpt: 'AutoMax was transparent about the car\'s history and condition...',
-      author: 'David K.',
-      date: '5 days ago'
+  // Fetch top rated dealerships based on user location
+  const fetchTopRatedDealerships = async (location: string) => {
+    setLoadingTopRated(true);
+    setTopRatedError(null);
+    
+    try {
+      const params: SearchParams = {
+        location: location,
+        radius: 10
+      };
+      
+      const response = await dealershipService.searchDealerships(params);
+      
+      // Filter dealerships with ratings and limit to 6
+      const dealershipsWithRatings = response.dealerships
+        .filter(dealership => dealership.averageRating && dealership.averageRating > 0)
+        .sort((a, b) => (b.averageRating || 0) - (a.averageRating || 0))
+        .slice(0, 6);
+      
+      setTopRatedDealerships(dealershipsWithRatings);
+    } catch (error) {
+      console.error('Error fetching top rated dealerships:', error);
+      setTopRatedError('Failed to load top rated dealerships');
+    } finally {
+      setLoadingTopRated(false);
     }
-  ];
+  };
+
 
   return (
     <>
@@ -126,7 +139,7 @@ const HomePage: React.FC = () => {
       >
         <Container maxWidth="md">
           <Typography variant="h1" component="h1" gutterBottom>
-            Find the Best Car Dealerships Near You
+            Discover dealerships that get your registration done fast - no endless waiting!
           </Typography>
           <Typography variant="h6" sx={{ mb: 4, opacity: 0.9 }}>
             Read reviews, compare ratings, and share your dealership experiences
@@ -164,58 +177,96 @@ const HomePage: React.FC = () => {
             </Button>
           </Paper>
           
-          <Box sx={{ mt: 3 }}>
-            <Button
-              variant="outlined"
-              sx={{ color: 'white', borderColor: 'white', '&:hover': { borderColor: 'white', backgroundColor: 'rgba(255,255,255,0.1)' } }}
-              onClick={() => navigate('/dealerships')}
-            >
-              Browse All Dealerships
-            </Button>
-          </Box>
         </Container>
       </Box>
 
       <Container maxWidth="lg" sx={{ py: 6 }}>
-        {/* Recent Reviews Section */}
+        {/* Top Rated Dealerships Section */}
         <Box sx={{ mb: 6 }}>
           <Typography variant="h2" component="h2" gutterBottom align="center">
-            Recent Reviews
+            Top Rated Dealerships
           </Typography>
           <Typography variant="body1" align="center" sx={{ mb: 4, color: 'text.secondary' }}>
-            See what others are saying about local dealerships
+            Discover the highest-rated dealerships near {searchValue || 'you'}
           </Typography>
           
+          {loadingTopRated && (
+            <Box display="flex" justifyContent="center" sx={{ py: 4 }}>
+              <CircularProgress />
+            </Box>
+          )}
+          
+          {topRatedError && (
+            <Alert severity="error" sx={{ mb: 4 }}>
+              {topRatedError}
+            </Alert>
+          )}
+          
           <Grid container spacing={3}>
-            {mockRecentReviews.map((review) => (
-              <Grid item xs={12} md={4} key={review.id}>
-                <Card sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+            {topRatedDealerships.map((dealership) => (
+              <Grid item xs={12} md={4} key={dealership.id}>
+                <Card 
+                  sx={{ 
+                    height: '100%', 
+                    display: 'flex', 
+                    flexDirection: 'column',
+                    cursor: 'pointer',
+                    '&:hover': {
+                      boxShadow: 4,
+                      transform: 'translateY(-2px)',
+                      transition: 'all 0.3s ease-in-out',
+                    }
+                  }}
+                  onClick={() => navigate(`/dealerships?location=${encodeURIComponent(searchValue)}&highlight=${dealership.googlePlaceId}`)}
+                >
                   <CardContent sx={{ flexGrow: 1 }}>
+                    <Typography variant="h6" component="h3" gutterBottom>
+                      {dealership.name}
+                    </Typography>
+                    
                     <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-                      <Rating value={review.rating} readOnly size="small" />
+                      <Rating 
+                        value={dealership.averageRating || 0} 
+                        readOnly 
+                        size="small" 
+                        precision={0.1}
+                      />
+                      <Typography variant="body2" sx={{ ml: 1 }}>
+                        {dealership.averageRating ? dealership.averageRating.toFixed(1) : 'No rating'}
+                      </Typography>
                       <Typography variant="caption" sx={{ ml: 1, color: 'text.secondary' }}>
-                        {review.date}
+                        ({dealership.reviewCount || 0} review{dealership.reviewCount !== 1 ? 's' : ''})
                       </Typography>
                     </Box>
                     
-                    <Typography variant="h6" component="h3" gutterBottom>
-                      {review.title}
-                    </Typography>
-                    
                     <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                      {review.excerpt}
+                      {dealership.address}
                     </Typography>
                     
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mt: 'auto' }}>
-                      <Chip
-                        label={review.dealership}
-                        size="small"
-                        color="primary"
-                        variant="outlined"
-                      />
-                      <Typography variant="caption" color="text.secondary">
-                        - {review.author}
+                    {dealership.distance && (
+                      <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                        {formatDistance(dealership.distance)} away
                       </Typography>
+                    )}
+                    
+                    <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mt: 'auto' }}>
+                      {dealership.brands.slice(0, 2).map((brand) => (
+                        <Chip
+                          key={brand}
+                          label={brand}
+                          size="small"
+                          color="primary"
+                          variant="outlined"
+                        />
+                      ))}
+                      {dealership.brands.length > 2 && (
+                        <Chip
+                          label={`+${dealership.brands.length - 2} more`}
+                          size="small"
+                          color="primary"
+                          variant="outlined"
+                        />
+                      )}
                     </Box>
                   </CardContent>
                 </Card>
@@ -224,31 +275,6 @@ const HomePage: React.FC = () => {
           </Grid>
         </Box>
 
-        {/* Call to Action */}
-        <Box
-          sx={{
-            textAlign: 'center',
-            py: 6,
-            backgroundColor: 'background.paper',
-            borderRadius: 2,
-            boxShadow: 1
-          }}
-        >
-          <Typography variant="h3" component="h2" gutterBottom>
-            Share Your Dealership Experience
-          </Typography>
-          <Typography variant="body1" sx={{ mb: 3, color: 'text.secondary' }}>
-            Help others make informed decisions by sharing your honest review
-          </Typography>
-          <Button
-            variant="contained"
-            size="large"
-            startIcon={<Star />}
-            onClick={() => navigate('/dealerships')}
-          >
-            Write a Review
-          </Button>
-        </Box>
       </Container>
     </>
   );

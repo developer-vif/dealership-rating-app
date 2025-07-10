@@ -1,6 +1,8 @@
 import { Client, TextSearchRequestParams } from '@googlemaps/google-maps-services-js';
 import axios from 'axios';
 import { logger } from '../utils/logger';
+import { query } from '../utils/database';
+import { addDistanceToLocation, Coordinates } from '../utils/distanceUtils';
 
 // --- Configuration and Constants ---
 
@@ -56,9 +58,14 @@ export interface Dealership {
   longitude: number;
   googleRating: number;
   googleReviewCount: number;
+  // Our database ratings
+  averageRating: number;
+  reviewCount: number;
   brands: string[];
   hours: DealershipHours;
   photos?: string[];
+  // Distance from search center (calculated dynamically)
+  distance?: number;
 }
 
 export interface GooglePlaceResult {
@@ -98,18 +105,35 @@ export interface SearchDealershipsParams {
 export interface DealershipSearchResult {
   results: GooglePlaceResult[];
   nextPageToken?: string;
+  searchCenter?: { latitude: number; longitude: number };
 }
 
 class GooglePlacesService {
   async searchDealerships(params: SearchDealershipsParams): Promise<DealershipSearchResult> {
     try {
       const searchParams: Partial<TextSearchRequestParams> = {};
+      let searchCenter: { latitude: number; longitude: number } | undefined;
 
       // If a pageToken is provided, use it to fetch the next page.
-      // Otherwise, perform a new search based on location/query.
+      // For pageToken requests, we still need the original search center for radius filtering
       if (params.pageToken) {
         searchParams.pagetoken = params.pageToken;
-        logger.info('Fetching next page of results', { pageToken: params.pageToken });
+        
+        // For pageToken requests, we still need search center coordinates for filtering
+        if (params.latitude && params.longitude) {
+          searchCenter = { latitude: params.latitude, longitude: params.longitude };
+        } else if (params.location) {
+          // Re-geocode the location for pageToken requests to get coordinates
+          const geocodeResponse = await client.geocode({
+            params: { address: params.location },
+          });
+          if (geocodeResponse.data.results.length > 0) {
+            const location = geocodeResponse.data.results[0].geometry.location;
+            searchCenter = { latitude: location.lat, longitude: location.lng };
+          }
+        }
+        
+        logger.info('Fetching next page of results', { pageToken: params.pageToken, searchCenter });
       } else {
         let query = 'car dealership OR motorcycle dealership';
         if (params.brand) {
@@ -121,6 +145,7 @@ class GooglePlacesService {
         if (params.latitude && params.longitude) {
           searchParams.location = `${params.latitude},${params.longitude}`;
           searchParams.radius = (params.radius || DEFAULT_SEARCH_RADIUS_KM) * 1000; // Convert km to meters
+          searchCenter = { latitude: params.latitude, longitude: params.longitude };
           logger.info('Starting new search using coordinates', { query, latitude: params.latitude, longitude: params.longitude, radius: params.radius });
         } else if (params.location) {
           // Geocode the location string first
@@ -132,6 +157,7 @@ class GooglePlacesService {
             const location = geocodeResponse.data.results[0].geometry.location;
             searchParams.location = `${location.lat},${location.lng}`;
             searchParams.radius = (params.radius || DEFAULT_SEARCH_RADIUS_KM) * 1000;
+            searchCenter = { latitude: location.lat, longitude: location.lng };
             logger.info('Starting new search using geocoded location', { query, originalLocation: params.location, radius: params.radius });
           } else {
             logger.warn('Could not geocode location', { location: params.location });
@@ -156,6 +182,20 @@ class GooglePlacesService {
       });
 
       if (response.data.status !== 'OK' && response.data.status !== 'ZERO_RESULTS') {
+        // Handle invalid pageToken gracefully - return empty results instead of throwing error
+        if (response.data.status === 'INVALID_REQUEST' && params.pageToken) {
+          logger.warn('PageToken has become invalid, returning empty results to continue gracefully', { 
+            status: response.data.status, 
+            pageToken: params.pageToken,
+            error_message: response.data.error_message 
+          });
+          return {
+            results: [],
+            nextPageToken: undefined,
+            searchCenter,
+          };
+        }
+        
         logger.error('Google Places API error', { 
           status: response.data.status, 
           error_message: response.data.error_message 
@@ -166,6 +206,7 @@ class GooglePlacesService {
       return {
         results: (response.data.results as GooglePlaceResult[]) || [],
         nextPageToken: response.data.next_page_token,
+        searchCenter,
       };
 
     } catch (error) {
@@ -233,9 +274,40 @@ class GooglePlacesService {
     }
   }
 
-  transformToAppFormat(googlePlace: GooglePlaceResult): Dealership {
+  async getDealershipRating(placeId: string): Promise<{ averageRating: number; reviewCount: number }> {
+    try {
+      const ratingQuery = `
+        SELECT 
+          COALESCE(AVG(rating), 0) as average_rating,
+          COUNT(*) as review_count
+        FROM reviews r
+        JOIN dealerships d ON r.dealership_id = d.id
+        WHERE d.google_place_id = $1
+      `;
+      
+      const result = await query(ratingQuery, [placeId]);
+      
+      if (result.rows.length === 0) {
+        return { averageRating: 0, reviewCount: 0 };
+      }
+      
+      const row = result.rows[0];
+      return {
+        averageRating: parseFloat(row.average_rating) || 0,
+        reviewCount: parseInt(row.review_count) || 0
+      };
+    } catch (error) {
+      logger.error('Error fetching dealership rating from database:', error);
+      return { averageRating: 0, reviewCount: 0 };
+    }
+  }
+
+  async transformToAppFormat(googlePlace: GooglePlaceResult): Promise<Dealership> {
     // Extract car brands from place name or types
     const carBrands = this.extractCarBrands(googlePlace.name, googlePlace.types);
+
+    // Get database rating for this dealership
+    const dbRating = await this.getDealershipRating(googlePlace.place_id);
 
     // Transform opening hours
     const hours: DealershipHours = googlePlace.opening_hours?.weekday_text ? {
@@ -267,12 +339,29 @@ class GooglePlacesService {
       longitude: googlePlace.geometry.location.lng,
       googleRating: googlePlace.rating || 0,
       googleReviewCount: googlePlace.user_ratings_total || 0,
+      // Include our database ratings
+      averageRating: dbRating.averageRating,
+      reviewCount: dbRating.reviewCount,
       brands: carBrands,
       hours,
       photos: googlePlace.photos?.map(photo => 
         `https://maps.googleapis.com/maps/api/place/photo?maxwidth=400&photoreference=${photo.photo_reference}&key=${googleMapsApiKey}`
       ) || [],
     };
+  }
+
+  /**
+   * Transform Google Place to Dealership format with distance calculation
+   * @param googlePlace Google Place result
+   * @param searchCenter Center point for distance calculation
+   * @returns Dealership with distance calculated
+   */
+  async transformToAppFormatWithDistance(
+    googlePlace: GooglePlaceResult, 
+    searchCenter: Coordinates
+  ): Promise<Dealership> {
+    const dealership = await this.transformToAppFormat(googlePlace);
+    return addDistanceToLocation(dealership, searchCenter);
   }
 
   private extractCarBrands(name: string, types: string[]): string[] {

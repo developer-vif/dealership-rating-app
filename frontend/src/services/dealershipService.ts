@@ -106,6 +106,35 @@ class DealershipService {
       throw new Error('Failed to fetch dealership details. Please try again.');
     }
   }
+
+  // Get top rated dealerships near a location
+  async getTopRatedDealerships(
+    location?: string,
+    latitude?: number,
+    longitude?: number,
+    radius: number = 50,
+    limit: number = 6
+  ): Promise<Dealership[]> {
+    try {
+      const params: SearchParams = {
+        ...(location && { location }),
+        ...(latitude && { latitude }),
+        ...(longitude && { longitude }),
+        radius
+      };
+      
+      const response = await this.searchDealerships(params);
+      
+      // Sort by average rating (highest first) and return top results
+      return response.dealerships
+        .filter(d => d.averageRating && d.averageRating > 0)
+        .sort((a, b) => (b.averageRating || 0) - (a.averageRating || 0))
+        .slice(0, limit);
+    } catch (error) {
+      console.error('❌ getTopRatedDealerships API error:', error);
+      throw new Error('Failed to fetch top rated dealerships. Please try again.');
+    }
+  }
 }
 
 export default new DealershipService();

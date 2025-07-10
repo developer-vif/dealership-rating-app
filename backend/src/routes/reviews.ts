@@ -4,6 +4,7 @@ import { logger } from '../utils/logger';
 import reviewService from '../services/reviewService';
 import userService from '../services/userService';
 import { authenticateToken } from '../middleware/auth';
+import { verifyRecaptcha } from '../services/recaptchaService';
 
 const router = Router();
 
@@ -18,6 +19,8 @@ const createReviewSchema = Joi.object({
   visitDate: Joi.string().isoDate().optional(),
   // Optional dealership information for auto-creation
   dealershipName: Joi.string().optional(),
+  // reCAPTCHA token
+  recaptchaToken: Joi.string().optional(),
 });
 
 const updateReviewSchema = Joi.object({
@@ -75,8 +78,8 @@ router.get('/:placeId', async (req: Request, res: Response) => {
   }
 });
 
-// POST /api/reviews - Create new review (requires authentication)
-router.post('/', authenticateToken, async (req: Request, res: Response) => {
+// POST /api/reviews - Create new review (requires authentication and reCAPTCHA verification)
+router.post('/', authenticateToken, verifyRecaptcha, async (req: Request, res: Response) => {
   try {
     // Validate request body
     const { error, value } = createReviewSchema.validate(req.body);
@@ -101,25 +104,16 @@ router.post('/', authenticateToken, async (req: Request, res: Response) => {
       });
     }
 
-    // Ensure user exists in database
-    let user;
-    try {
-      user = await userService.getUserById(req.user.userId);
-      if (!user) {
-        user = await userService.getOrCreateUser({
-          googleId: req.user.userId, // For now using userId as googleId
-          email: req.user.email,
-          name: req.user.name,
-          avatarUrl: req.user.picture
-        });
-      }
-    } catch (userError) {
-      // Create user if doesn't exist
-      user = await userService.getOrCreateUser({
-        googleId: req.user.userId,
-        email: req.user.email,
-        name: req.user.name,
-        avatarUrl: req.user.picture
+    // Get user from database (should exist since JWT contains database UUID)
+    const user = await userService.getUserById(req.user.userId);
+    if (!user) {
+      logger.error('User not found in database despite valid JWT', { userId: req.user.userId });
+      return res.status(401).json({
+        success: false,
+        error: {
+          code: 'USER_NOT_FOUND',
+          message: 'User account not found. Please log in again.'
+        }
       });
     }
     

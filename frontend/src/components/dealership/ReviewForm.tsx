@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Box,
   Typography,
@@ -6,14 +6,16 @@ import {
   TextField,
   Button,
   Paper,
-  Grid,
   Rating,
   Checkbox,
   FormHelperText,
   Divider,
+  Alert,
+  AlertTitle,
+  Slider,
 } from '@mui/material';
-import { styled } from '@mui/material/styles';
 import { Login as LoginIcon } from '@mui/icons-material';
+import { useGoogleReCaptcha } from 'react-google-recaptcha-v3';
 import { Dealership } from '../../types/dealership';
 import { useAuth } from '../../contexts/AuthContext';
 import GoogleSignInButton from '../auth/GoogleSignInButton';
@@ -25,10 +27,11 @@ interface ReviewFormProps {
 }
 
 interface FormData {
-  receiptTime: string;
-  platesTime: string;
+  receiptTime: number;
+  platesTime: number;
   reviewText: string;
   acceptTerms: boolean;
+  recaptchaToken: string | null;
 }
 
 interface FormErrors {
@@ -36,33 +39,39 @@ interface FormErrors {
   platesTime?: string;
   reviewText?: string;
   acceptTerms?: string;
+  recaptcha?: string;
 }
 
-const DurationOption = styled(Paper)(({ theme }) => ({
-  padding: theme.spacing(1.5),
-  textAlign: 'center',
-  cursor: 'pointer',
-  border: `2px solid ${theme.palette.grey[300]}`,
-  transition: 'all 0.2s ease',
-  '&:hover': {
-    borderColor: theme.palette.primary.main,
-    transform: 'translateY(-1px)',
-  },
-  '&.selected': {
-    borderColor: theme.palette.primary.main,
-    backgroundColor: theme.palette.primary.main,
-    color: theme.palette.primary.contrastText,
-  },
-}));
 
-const durationOptions = [
-  { value: 'same-day', label: 'Same Day', description: 'Within hours', score: 5 },
-  { value: '1-week', label: '< 1 Week', description: '1-7 days', score: 4 },
-  { value: '2-weeks', label: '< 2 Weeks', description: '8-14 days', score: 3 },
-  { value: '1-month', label: '< 1 Month', description: '15-30 days', score: 2 },
-  { value: '2-months', label: '< 2 Months', description: '31-60 days', score: 1 },
-  { value: 'longer', label: '> 2 Months', description: '60+ days', score: 0 },
+const sliderMarks = [
+  { value: 0, label: '> 2 Months' },
+  { value: 1, label: '< 2 Months' },
+  { value: 2, label: '< 1 Month' },
+  { value: 3, label: '< 2 Weeks' },
+  { value: 4, label: '< 1 Week' },
 ];
+
+const getTimeDescription = (score: number): string => {
+  const descriptions = {
+    0: '60+ days',
+    1: '31-60 days',
+    2: '15-30 days',
+    3: '8-14 days',
+    4: '1-7 days'
+  };
+  return descriptions[score as keyof typeof descriptions] || '';
+};
+
+const convertScoreToApiValue = (score: number): string => {
+  const apiValues = {
+    0: 'longer',
+    1: '2-months', 
+    2: '1-month',
+    3: '2-weeks',
+    4: '1-week'
+  };
+  return apiValues[score as keyof typeof apiValues] || 'longer';
+};
 
 const ratingDescriptions = {
   5: 'Excellent - Very Fast Processing',
@@ -73,34 +82,38 @@ const ratingDescriptions = {
 };
 
 const ReviewForm: React.FC<ReviewFormProps> = ({ dealership, onSubmit }) => {
-  const { user, isAuthenticated, token } = useAuth();
+  const { user, isAuthenticated } = useAuth();
+  const { executeRecaptcha } = useGoogleReCaptcha();
   const [formData, setFormData] = useState<FormData>({
-    receiptTime: '',
-    platesTime: '',
+    receiptTime: 2,
+    platesTime: 2,
     reviewText: '',
     acceptTerms: false,
+    recaptchaToken: null,
   });
 
   const [errors, setErrors] = useState<FormErrors>({});
   const [calculatedRating, setCalculatedRating] = useState<number | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [duplicateReviewError, setDuplicateReviewError] = useState(false);
 
-  const calculateRating = (receiptTime: string, platesTime: string) => {
-    if (!receiptTime || !platesTime) {
-      setCalculatedRating(null);
-      return;
-    }
-
-    const receiptScore = durationOptions.find(opt => opt.value === receiptTime)?.score || 0;
-    const platesScore = durationOptions.find(opt => opt.value === platesTime)?.score || 0;
+  const calculateRating = (receiptTime: number, platesTime: number) => {
+    const receiptScore = receiptTime;
+    const platesScore = platesTime;
     
+    // Convert 0-4 scale to 1-5 star rating
     const averageScore = (receiptScore + platesScore) / 2;
-    const starRating = Math.max(1, Math.round(averageScore)); // Minimum 1 star
+    const starRating = Math.max(1, Math.round((averageScore / 4) * 4) + 1); // Map 0-4 to 1-5 stars
     
     setCalculatedRating(starRating);
   };
 
-  const handleReceiptTimeChange = (value: string) => {
+  // Calculate initial rating when component mounts
+  useEffect(() => {
+    calculateRating(formData.receiptTime, formData.platesTime);
+  }, [formData.receiptTime, formData.platesTime]);
+
+  const handleReceiptTimeChange = (value: number) => {
     setFormData(prev => ({ ...prev, receiptTime: value }));
     calculateRating(value, formData.platesTime);
     if (errors.receiptTime) {
@@ -109,7 +122,7 @@ const ReviewForm: React.FC<ReviewFormProps> = ({ dealership, onSubmit }) => {
     }
   };
 
-  const handlePlatesTimeChange = (value: string) => {
+  const handlePlatesTimeChange = (value: number) => {
     setFormData(prev => ({ ...prev, platesTime: value }));
     calculateRating(formData.receiptTime, value);
     if (errors.platesTime) {
@@ -135,14 +148,15 @@ const ReviewForm: React.FC<ReviewFormProps> = ({ dealership, onSubmit }) => {
     }
   };
 
+
   const validateForm = (): boolean => {
     const newErrors: FormErrors = {};
 
-    if (!formData.receiptTime) {
+    if (formData.receiptTime === null || formData.receiptTime === undefined) {
       newErrors.receiptTime = 'Please select receipt processing time';
     }
 
-    if (!formData.platesTime) {
+    if (formData.platesTime === null || formData.platesTime === undefined) {
       newErrors.platesTime = 'Please select plates processing time';
     }
 
@@ -170,6 +184,16 @@ const ReviewForm: React.FC<ReviewFormProps> = ({ dealership, onSubmit }) => {
     setSubmitting(true);
 
     try {
+      // Execute reCAPTCHA v3
+      if (!executeRecaptcha) {
+        throw new Error('reCAPTCHA not available');
+      }
+      
+      const recaptchaToken = await executeRecaptcha('submit_review');
+      
+      if (!recaptchaToken) {
+        throw new Error('reCAPTCHA verification failed');
+      }
       // Generate a meaningful title based on rating
       const title = `${calculatedRating} star${calculatedRating !== 1 ? 's' : ''} - ${
         calculatedRating >= 5 ? 'Excellent' : 
@@ -183,11 +207,13 @@ const ReviewForm: React.FC<ReviewFormProps> = ({ dealership, onSubmit }) => {
         rating: calculatedRating,
         title,
         content: formData.reviewText,
-        receiptProcessingTime: formData.receiptTime,
-        platesProcessingTime: formData.platesTime,
+        receiptProcessingTime: convertScoreToApiValue(formData.receiptTime),
+        platesProcessingTime: convertScoreToApiValue(formData.platesTime),
         visitDate: new Date().toISOString().split('T')[0], // Current date
         // Pass dealership information for auto-creation if needed
         dealershipName: dealership.name,
+        // Include reCAPTCHA token
+        recaptchaToken: recaptchaToken,
       };
 
       console.log('Submitting review data:', reviewData);
@@ -200,11 +226,21 @@ const ReviewForm: React.FC<ReviewFormProps> = ({ dealership, onSubmit }) => {
     } catch (error) {
       console.error('Error submitting review:', error);
       
-      // Check if it's an authentication error
-      if (error instanceof Error && error.message.includes('401')) {
-        alert('Your session has expired. Please sign in again to submit your review.');
+      // Check for specific error types
+      if (error instanceof Error) {
+        const errorMessage = error.message;
+        
+        if (errorMessage.includes('401')) {
+          alert('Your session has expired. Please sign in again to submit your review.');
+        } else if (errorMessage.includes('already reviewed') || errorMessage.includes('DUPLICATE_REVIEW')) {
+          setDuplicateReviewError(true);
+        } else if (errorMessage.includes('reCAPTCHA') || errorMessage.includes('RECAPTCHA')) {
+          alert('Security verification failed. Please try again.');
+        } else {
+          alert(errorMessage || 'Failed to submit review. Please try again.');
+        }
       } else {
-        alert(error instanceof Error ? error.message : 'Failed to submit review. Please try again.');
+        alert('Failed to submit review. Please try again.');
       }
     } finally {
       setSubmitting(false);
@@ -233,16 +269,16 @@ const ReviewForm: React.FC<ReviewFormProps> = ({ dealership, onSubmit }) => {
           </Typography>
           <Box display="flex" alignItems="center" gap={1}>
             <Rating
-              value={dealership.googleRating}
+              value={dealership.averageRating || 0}
               readOnly
               size="small"
               precision={0.1}
             />
             <Typography variant="body2">
-              {dealership.googleRating}
+              {dealership.averageRating ? dealership.averageRating.toFixed(1) : 'No rating'}
             </Typography>
             <Typography variant="body2" color="text.secondary">
-              ({dealership.googleReviewCount} reviews)
+              ({dealership.reviewCount || 0} review{dealership.reviewCount !== 1 ? 's' : ''})
             </Typography>
           </Box>
         </Paper>
@@ -272,6 +308,119 @@ const ReviewForm: React.FC<ReviewFormProps> = ({ dealership, onSubmit }) => {
             By signing in, you agree to our Terms of Service and Review Guidelines.
           </Typography>
         </Paper>
+      </Box>
+    );
+  }
+
+  // Show duplicate review error if detected
+  if (duplicateReviewError) {
+    return (
+      <Box>
+        {/* Dealership Context */}
+        <Paper
+          elevation={0}
+          sx={{
+            p: 2,
+            bgcolor: 'grey.50',
+            borderRadius: 2,
+            mb: 3,
+          }}
+        >
+          <Typography variant="h6" gutterBottom>
+            {dealership.name}
+          </Typography>
+          <Typography variant="body2" color="text.secondary" gutterBottom>
+            📍 {dealership.address}
+          </Typography>
+          <Box display="flex" alignItems="center" gap={1}>
+            <Rating
+              value={dealership.averageRating || 0}
+              readOnly
+              size="small"
+              precision={0.1}
+            />
+            <Typography variant="body2">
+              {dealership.averageRating ? dealership.averageRating.toFixed(1) : 'No rating'}
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              ({dealership.reviewCount || 0} review{dealership.reviewCount !== 1 ? 's' : ''})
+            </Typography>
+          </Box>
+        </Paper>
+
+        {/* User Info */}
+        {user && (
+          <Paper elevation={0} sx={{ p: 2, mb: 3, bgcolor: 'primary.light', color: 'primary.contrastText' }}>
+            <Box display="flex" alignItems="center" gap={2}>
+              {user.picture && (
+                <Box
+                  component="img"
+                  src={user.picture}
+                  alt={user.name}
+                  sx={{
+                    width: 32,
+                    height: 32,
+                    borderRadius: '50%',
+                  }}
+                />
+              )}
+              <Box>
+                <Typography variant="body2" fontWeight="medium">
+                  Signed in as {user.name}
+                </Typography>
+                <Typography variant="caption" sx={{ opacity: 0.8 }}>
+                  {user.email}
+                </Typography>
+              </Box>
+            </Box>
+          </Paper>
+        )}
+
+        {/* Duplicate Review Error */}
+        <Alert severity="warning" sx={{ mb: 3 }}>
+          <AlertTitle>Review Already Submitted</AlertTitle>
+          <Typography variant="body2" sx={{ mb: 2 }}>
+            You have already submitted a review for <strong>{dealership.name}</strong>. 
+            Each user can only submit one review per dealership.
+          </Typography>
+          <Typography variant="body2" sx={{ mb: 2 }}>
+            If you'd like to update your existing review, you can:
+          </Typography>
+          <Box component="ul" sx={{ m: 0, pl: 2 }}>
+            <li>Switch to the "Details" tab to view all reviews</li>
+            <li>Find your review in the reviews section</li>
+            <li>Use the edit option to modify your existing review</li>
+            <li>Or contact support if you need assistance</li>
+          </Box>
+        </Alert>
+
+        {/* Action Buttons */}
+        <Box display="flex" gap={2} justifyContent="center">
+          <Button
+            variant="outlined"
+            onClick={() => {
+              setDuplicateReviewError(false);
+              // Reset form state
+              setFormData({
+                receiptTime: 2,
+                platesTime: 2,
+                reviewText: '',
+                acceptTerms: false,
+                recaptchaToken: null,
+              });
+              setErrors({});
+              setCalculatedRating(null);
+            }}
+          >
+            Try Again
+          </Button>
+          <Button
+            variant="contained"
+            onClick={onSubmit}
+          >
+            Back to Reviews
+          </Button>
+        </Box>
       </Box>
     );
   }
@@ -354,23 +503,21 @@ const ReviewForm: React.FC<ReviewFormProps> = ({ dealership, onSubmit }) => {
             <strong>Official Receipt & Certificate of Registration Release Time</strong> *
           </Typography>
           
-          <Grid container spacing={1.5} sx={{ mb: 1 }}>
-            {durationOptions.map((option) => (
-              <Grid item xs={6} sm={4} md={2} key={option.value}>
-                <DurationOption
-                  className={formData.receiptTime === option.value ? 'selected' : ''}
-                  onClick={() => handleReceiptTimeChange(option.value)}
-                >
-                  <Typography variant="body2" fontWeight="medium">
-                    {option.label}
-                  </Typography>
-                  <Typography variant="caption" sx={{ opacity: 0.8 }}>
-                    {option.description}
-                  </Typography>
-                </DurationOption>
-              </Grid>
-            ))}
-          </Grid>
+          <Box sx={{ px: 2, mb: 2 }}>
+            <Slider
+              value={formData.receiptTime}
+              onChange={(_, value) => handleReceiptTimeChange(value as number)}
+              min={0}
+              max={4}
+              step={1}
+              marks={sliderMarks}
+              valueLabelDisplay="off"
+              sx={{ mb: 1 }}
+            />
+            <Typography variant="body2" color="primary" sx={{ textAlign: 'center', fontWeight: 'medium' }}>
+              {sliderMarks.find(mark => mark.value === formData.receiptTime)?.label} ({getTimeDescription(formData.receiptTime)})
+            </Typography>
+          </Box>
           
           <Typography variant="caption" color="text.secondary">
             Official receipt and certificate of registration needed for insurance and legal ownership.
@@ -387,23 +534,21 @@ const ReviewForm: React.FC<ReviewFormProps> = ({ dealership, onSubmit }) => {
             <strong>Registration Plates Release Time</strong> *
           </Typography>
           
-          <Grid container spacing={1.5} sx={{ mb: 1 }}>
-            {durationOptions.map((option) => (
-              <Grid item xs={6} sm={4} md={2} key={option.value}>
-                <DurationOption
-                  className={formData.platesTime === option.value ? 'selected' : ''}
-                  onClick={() => handlePlatesTimeChange(option.value)}
-                >
-                  <Typography variant="body2" fontWeight="medium">
-                    {option.label}
-                  </Typography>
-                  <Typography variant="caption" sx={{ opacity: 0.8 }}>
-                    {option.description}
-                  </Typography>
-                </DurationOption>
-              </Grid>
-            ))}
-          </Grid>
+          <Box sx={{ px: 2, mb: 2 }}>
+            <Slider
+              value={formData.platesTime}
+              onChange={(_, value) => handlePlatesTimeChange(value as number)}
+              min={0}
+              max={4}
+              step={1}
+              marks={sliderMarks}
+              valueLabelDisplay="off"
+              sx={{ mb: 1 }}
+            />
+            <Typography variant="body2" color="primary" sx={{ textAlign: 'center', fontWeight: 'medium' }}>
+              {sliderMarks.find(mark => mark.value === formData.platesTime)?.label} ({getTimeDescription(formData.platesTime)})
+            </Typography>
+          </Box>
           
           <Typography variant="caption" color="text.secondary">
             License plates are required to legally drive your vehicle on public roads.
@@ -510,6 +655,13 @@ const ReviewForm: React.FC<ReviewFormProps> = ({ dealership, onSubmit }) => {
         {errors.acceptTerms && (
           <FormHelperText error>{errors.acceptTerms}</FormHelperText>
         )}
+      </Paper>
+
+      {/* Security Notice */}
+      <Paper elevation={0} sx={{ p: 3, mb: 3, bgcolor: 'info.light', color: 'info.contrastText' }}>
+        <Typography variant="body2" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          🔒 <strong>Security:</strong> This form is protected by reCAPTCHA v3 for spam prevention.
+        </Typography>
       </Paper>
 
       {/* Form Actions */}
