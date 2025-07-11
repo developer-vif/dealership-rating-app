@@ -20,6 +20,7 @@ import useGeolocation from '../hooks/useGeolocation';
 import { getCurrentLocationName, formatDistance } from '../utils/locationUtils';
 import dealershipService from '../services/dealershipService';
 import { Dealership, SearchParams } from '../types/dealership';
+import DealerDetailsDialog from '../components/dealership/DealerDetailsDialog';
 
 const HomePage: React.FC = () => {
   const navigate = useNavigate();
@@ -28,6 +29,10 @@ const HomePage: React.FC = () => {
   const [loadingTopRated, setLoadingTopRated] = useState(false);
   const [topRatedError, setTopRatedError] = useState<string | null>(null);
   const { position, loading, error } = useGeolocation();
+  
+  // Dialog state management
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [dialogDealership, setDialogDealership] = useState<Dealership | null>(null);
   
   const locationInputRef = useRef<HTMLInputElement>(null);
   const autocompleteRef = useRef<google.maps.places.Autocomplete | null>(null);
@@ -95,6 +100,17 @@ const HomePage: React.FC = () => {
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
     navigate(`/dealerships?location=${encodeURIComponent(searchValue)}&radius=10`);
+  };
+
+  // Dialog event handlers
+  const handleDealershipClick = (dealership: Dealership) => {
+    setDialogDealership(dealership);
+    setDialogOpen(true);
+  };
+
+  const handleDialogClose = () => {
+    setDialogOpen(false);
+    setDialogDealership(null);
   };
 
   // Fetch top rated dealerships based on user location
@@ -217,7 +233,7 @@ const HomePage: React.FC = () => {
                       transition: 'all 0.3s ease-in-out',
                     }
                   }}
-                  onClick={() => navigate(`/dealerships?location=${encodeURIComponent(searchValue)}&highlight=${dealership.googlePlaceId}`)}
+                  onClick={() => handleDealershipClick(dealership)}
                 >
                   <CardContent sx={{ flexGrow: 1 }}>
                     <Typography variant="h6" component="h3" gutterBottom>
@@ -276,6 +292,13 @@ const HomePage: React.FC = () => {
         </Box>
 
       </Container>
+
+      {/* Review Dialog */}
+      <DealerDetailsDialog
+        open={dialogOpen}
+        onClose={handleDialogClose}
+        dealership={dialogDealership}
+      />
     </>
   );
 };
