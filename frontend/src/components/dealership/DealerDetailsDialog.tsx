@@ -11,8 +11,6 @@ import {
   IconButton,
   CircularProgress,
   Alert,
-  Tabs,
-  Tab,
   Rating,
   Chip,
 } from '@mui/material';
@@ -37,12 +35,6 @@ interface DealerDetailsDialogProps {
   loading?: boolean;
 }
 
-function a11yProps(index: number) {
-  return {
-    id: `dealer-tab-${index}`,
-    'aria-controls': `dealer-tabpanel-${index}`,
-  };
-}
 
 const DealerDetailsDialog: React.FC<DealerDetailsDialogProps> = ({
   open,
@@ -50,12 +42,7 @@ const DealerDetailsDialog: React.FC<DealerDetailsDialogProps> = ({
   dealership,
   loading = false,
 }) => {
-  const [activeTab, setActiveTab] = useState(0);
   const [reviewSubmitted, setReviewSubmitted] = useState(false);
-
-  const handleTabChange = (_event: React.SyntheticEvent, newValue: number) => {
-    setActiveTab(newValue);
-  };
 
   const handleReviewSubmit = () => {
     setReviewSubmitted(true);
@@ -148,17 +135,17 @@ const DealerDetailsDialog: React.FC<DealerDetailsDialogProps> = ({
               <Box display="flex" alignItems="center" gap={2} mb={1}>
                 <Box display="flex" alignItems="center">
                   <Rating
-                    value={dealership.googleRating}
+                    value={dealership.averageRating || 0}
                     readOnly
                     size="small"
                     precision={0.1}
                   />
                   <Typography variant="body2" ml={1}>
-                    {dealership.googleRating}
+                    {dealership.averageRating ? dealership.averageRating.toFixed(1) : 'No rating'}
                   </Typography>
                 </Box>
                 <Typography variant="body2" color="text.secondary">
-                  ({dealership.googleReviewCount} reviews)
+                  ({dealership.reviewCount || 0} review{dealership.reviewCount !== 1 ? 's' : ''})
                 </Typography>
                 {dealership.distance && (
                   <Typography variant="body2" color="text.secondary">
@@ -255,63 +242,50 @@ const DealerDetailsDialog: React.FC<DealerDetailsDialogProps> = ({
           )}
         </Paper>
 
-        {/* Tabs for Details and Write Review */}
-        <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}>
-          <Tabs
-            value={activeTab}
-            onChange={handleTabChange}
-            aria-label="dealer content tabs"
-          >
-            <Tab label="Details" {...a11yProps(0)} />
-            <Tab label="Write Review" {...a11yProps(1)} />
-          </Tabs>
+        {/* Photos Section */}
+        {dealership.photos && dealership.photos.length > 0 && (
+          <Box mb={4}>
+            <Typography variant="h6" gutterBottom>
+              Photos
+            </Typography>
+            <Grid container spacing={2}>
+              {dealership.photos.map((photo, index) => (
+                <Grid item xs={6} md={4} key={index}>
+                  <Box
+                    component="img"
+                    src={photo}
+                    alt={`${dealership.name} photo ${index + 1}`}
+                    sx={{
+                      width: '100%',
+                      height: 120,
+                      objectFit: 'cover',
+                      borderRadius: 1,
+                    }}
+                  />
+                </Grid>
+              ))}
+            </Grid>
+          </Box>
+        )}
+
+        {/* Write Review Section */}
+        <Box mb={4}>
+          <Typography variant="h6" gutterBottom>
+            Write a Review
+          </Typography>
+          {reviewSubmitted ? (
+            <Alert severity="success" sx={{ mb: 3 }}>
+              Thank you for your review! Your feedback helps other customers make informed decisions.
+            </Alert>
+          ) : (
+            <ReviewForm dealership={dealership} onSubmit={handleReviewSubmit} />
+          )}
         </Box>
 
-        {/* Tab Content */}
-        {activeTab === 0 && (
-          <Box>
-            {/* Photos */}
-            {dealership.photos && dealership.photos.length > 0 && (
-              <Box mb={4}>
-                <Typography variant="h6" gutterBottom>
-                  Photos
-                </Typography>
-                <Grid container spacing={2}>
-                  {dealership.photos.map((photo, index) => (
-                    <Grid item xs={6} md={4} key={index}>
-                      <Box
-                        component="img"
-                        src={photo}
-                        alt={`${dealership.name} photo ${index + 1}`}
-                        sx={{
-                          width: '100%',
-                          height: 120,
-                          objectFit: 'cover',
-                          borderRadius: 1,
-                        }}
-                      />
-                    </Grid>
-                  ))}
-                </Grid>
-              </Box>
-            )}
-
-            {/* Reviews Section */}
-            <ReviewsList placeId={dealership.googlePlaceId} />
-          </Box>
-        )}
-
-        {activeTab === 1 && (
-          <Box>
-            {reviewSubmitted ? (
-              <Alert severity="success" sx={{ mb: 3 }}>
-                Thank you for your review! Your feedback helps other customers make informed decisions.
-              </Alert>
-            ) : (
-              <ReviewForm dealership={dealership} onSubmit={handleReviewSubmit} />
-            )}
-          </Box>
-        )}
+        {/* Existing Reviews Section */}
+        <Box>
+          <ReviewsList placeId={dealership.googlePlaceId} />
+        </Box>
       </DialogContent>
     </Dialog>
   );
