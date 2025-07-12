@@ -12,7 +12,6 @@ import {
   Divider,
   Alert,
   AlertTitle,
-  Slider,
   Avatar,
 } from '@mui/material';
 import { Login as LoginIcon, Delete } from '@mui/icons-material';
@@ -27,6 +26,7 @@ import {
   generateAnonymousInitials, 
   generateAnonymousAvatarColor 
 } from '../../utils/anonymization';
+import DualTimeSliderRating from '../rating/DualTimeSliderRating';
 
 interface ReviewFormProps {
   dealership?: Dealership;
@@ -66,24 +66,6 @@ interface FormErrors {
 }
 
 
-const sliderMarks = [
-  { value: 0, label: '> 2 Months' },
-  { value: 1, label: '< 2 Months' },
-  { value: 2, label: '< 1 Month' },
-  { value: 3, label: '< 2 Weeks' },
-  { value: 4, label: '< 1 Week' },
-];
-
-const getTimeDescription = (score: number): string => {
-  const descriptions = {
-    0: '60+ days',
-    1: '31-60 days',
-    2: '15-30 days',
-    3: '8-14 days',
-    4: '1-7 days'
-  };
-  return descriptions[score as keyof typeof descriptions] || '';
-};
 
 const convertScoreToApiValue = (score: number): string => {
   const apiValues = {
@@ -108,13 +90,6 @@ const convertApiValueToScore = (apiValue: string): number => {
   return scoreValues[apiValue as keyof typeof scoreValues] || 0;
 };
 
-const ratingDescriptions = {
-  5: 'Excellent - Very Fast Processing',
-  4: 'Good - Fast Processing',
-  3: 'Average - Standard Processing',
-  2: 'Below Average - Slow Processing',
-  1: 'Poor - Very Slow Processing',
-};
 
 const ReviewForm: React.FC<ReviewFormProps> = ({ 
   dealership, 
@@ -168,16 +143,6 @@ const ReviewForm: React.FC<ReviewFormProps> = ({
     formData.platesTime !== originalFormData.platesTime ||
     formData.reviewText !== originalFormData.reviewText : false;
 
-  const calculateRating = (receiptTime: number, platesTime: number) => {
-    const receiptScore = receiptTime;
-    const platesScore = platesTime;
-    
-    // Convert 0-4 scale to 1-5 star rating
-    const averageScore = (receiptScore + platesScore) / 2;
-    const starRating = Math.max(1, Math.round((averageScore / 4) * 4) + 1); // Map 0-4 to 1-5 stars
-    
-    setCalculatedRating(starRating);
-  };
 
   // Store original form data when component mounts or initialData changes
   useEffect(() => {
@@ -207,12 +172,17 @@ const ReviewForm: React.FC<ReviewFormProps> = ({
 
   // Calculate initial rating when component mounts
   useEffect(() => {
-    calculateRating(formData.receiptTime, formData.platesTime);
+    const averageScore = (formData.receiptTime + formData.platesTime) / 2;
+    const starRating = Math.max(1, Math.round((averageScore / 4) * 4) + 1);
+    setCalculatedRating(starRating);
   }, [formData.receiptTime, formData.platesTime]);
 
   const handleReceiptTimeChange = (value: number) => {
     setFormData(prev => ({ ...prev, receiptTime: value }));
-    calculateRating(value, formData.platesTime);
+    // Calculate rating for form submission (same logic as DualTimeSliderRating)
+    const averageScore = (value + formData.platesTime) / 2;
+    const starRating = Math.max(1, Math.round((averageScore / 4) * 4) + 1);
+    setCalculatedRating(starRating);
     if (errors.receiptTime) {
       const { receiptTime, ...rest } = errors;
       setErrors(rest);
@@ -221,7 +191,10 @@ const ReviewForm: React.FC<ReviewFormProps> = ({
 
   const handlePlatesTimeChange = (value: number) => {
     setFormData(prev => ({ ...prev, platesTime: value }));
-    calculateRating(formData.receiptTime, value);
+    // Calculate rating for form submission (same logic as DualTimeSliderRating)
+    const averageScore = (formData.receiptTime + value) / 2;
+    const starRating = Math.max(1, Math.round((averageScore / 4) * 4) + 1);
+    setCalculatedRating(starRating);
     if (errors.platesTime) {
       const { platesTime, ...rest } = errors;
       setErrors(rest);
@@ -687,101 +660,16 @@ const ReviewForm: React.FC<ReviewFormProps> = ({
           This helps other buyers know what to expect.
         </Typography>
 
-        {/* Receipt Time */}
-        <Box sx={{ mb: 3 }}>
-          <Typography variant="subtitle1" gutterBottom>
-            <strong>Official Receipt & Certificate of Registration Release Time</strong> *
-          </Typography>
-          
-          <Box sx={{ px: 2, mb: 2 }}>
-            <Slider
-              value={formData.receiptTime}
-              onChange={(_, value) => handleReceiptTimeChange(value as number)}
-              min={0}
-              max={4}
-              step={1}
-              marks={sliderMarks}
-              valueLabelDisplay="off"
-              sx={{ mb: 1 }}
-            />
-            <Typography variant="body2" color="primary" sx={{ textAlign: 'center', fontWeight: 'medium' }}>
-              {sliderMarks.find(mark => mark.value === formData.receiptTime)?.label} ({getTimeDescription(formData.receiptTime)})
-            </Typography>
-          </Box>
-          
-          <Typography variant="caption" color="text.secondary">
-            Official receipt and certificate of registration needed for insurance and legal ownership.
-          </Typography>
-          
-          {errors.receiptTime && (
-            <FormHelperText error>{errors.receiptTime}</FormHelperText>
-          )}
-        </Box>
-
-        {/* Plates Time */}
-        <Box sx={{ mb: 3 }}>
-          <Typography variant="subtitle1" gutterBottom>
-            <strong>Registration Plates Release Time</strong> *
-          </Typography>
-          
-          <Box sx={{ px: 2, mb: 2 }}>
-            <Slider
-              value={formData.platesTime}
-              onChange={(_, value) => handlePlatesTimeChange(value as number)}
-              min={0}
-              max={4}
-              step={1}
-              marks={sliderMarks}
-              valueLabelDisplay="off"
-              sx={{ mb: 1 }}
-            />
-            <Typography variant="body2" color="primary" sx={{ textAlign: 'center', fontWeight: 'medium' }}>
-              {sliderMarks.find(mark => mark.value === formData.platesTime)?.label} ({getTimeDescription(formData.platesTime)})
-            </Typography>
-          </Box>
-          
-          <Typography variant="caption" color="text.secondary">
-            License plates are required to legally drive your vehicle on public roads.
-          </Typography>
-          
-          {errors.platesTime && (
-            <FormHelperText error>{errors.platesTime}</FormHelperText>
-          )}
-        </Box>
-
-        {/* Calculated Rating */}
-        {calculatedRating !== null && (
-          <Paper
-            elevation={0}
-            sx={{
-              p: 2,
-              bgcolor: 'grey.50',
-              borderRadius: 2,
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-            }}
-          >
-            <Box>
-              <Typography variant="subtitle1" fontWeight="bold">
-                Calculated Rating:
-              </Typography>
-              <Typography variant="body2" color="text.secondary">
-                Based on document processing efficiency
-              </Typography>
-            </Box>
-            <Box display="flex" alignItems="center" gap={1}>
-              <Rating
-                value={calculatedRating}
-                readOnly
-                size="small"
-              />
-              <Typography variant="body2" fontWeight="medium">
-                {calculatedRating}/5 - {ratingDescriptions[calculatedRating as keyof typeof ratingDescriptions]}
-              </Typography>
-            </Box>
-          </Paper>
-        )}
+        {/* Enhanced Dual Time Slider Rating */}
+        <DualTimeSliderRating
+          receiptTime={formData.receiptTime}
+          platesTime={formData.platesTime}
+          onReceiptTimeChange={handleReceiptTimeChange}
+          onPlatesTimeChange={handlePlatesTimeChange}
+          receiptError={errors.receiptTime}
+          platesError={errors.platesTime}
+          showCalculatedRating={true}
+        />
       </Paper>
 
       {/* Experience Section */}

@@ -8,6 +8,10 @@ import HomePage from './pages/HomePage';
 import DealershipsPage from './pages/DealershipsPage';
 import DealershipDetailPage from './pages/DealershipDetailPage';
 import ReviewFormPage from './pages/ReviewFormPage';
+import TestRatingPage from './pages/test/TestRatingPage';
+import StarRatingTest from './pages/test/StarRatingTest';
+import SliderRatingTest from './pages/test/SliderRatingTest';
+import ButtonRatingTest from './pages/test/ButtonRatingTest';
 
 const libraries: ("places" | "geometry")[] = ['places', 'geometry'];
 
@@ -66,6 +70,10 @@ function App() {
           <Route path="/dealerships" element={<DealershipsPage />} />
           <Route path="/dealership/:placeId" element={<DealershipDetailPage />} />
           <Route path="/dealership/:placeId/review" element={<ReviewFormPage />} />
+          <Route path="/test/ratings" element={<TestRatingPage />} />
+          <Route path="/test/rating-stars" element={<StarRatingTest />} />
+          <Route path="/test/rating-slider" element={<SliderRatingTest />} />
+          <Route path="/test/rating-buttons" element={<ButtonRatingTest />} />
           <Route path="*" element={
             <Container sx={{ py: 4, textAlign: 'center' }}>
               <h1>404 - Page Not Found</h1>
