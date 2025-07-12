@@ -3,6 +3,7 @@ import { logger } from '../utils/logger';
 import { verifyGoogleToken, getGoogleAuthUrl } from '../utils/googleAuth';
 import { generateToken, refreshToken as refreshJwtToken, verifyToken } from '../utils/jwt';
 import { authenticateToken } from '../middleware/auth';
+import userService from '../services/userService';
 
 const router = Router();
 
@@ -54,17 +55,26 @@ router.post('/google', async (req: Request, res: Response) => {
     // Verify Google token
     const googleUser = await verifyGoogleToken(token);
     
-    // Generate JWT token
-    const jwtToken = generateToken({
-      userId: googleUser.id,
+    // Get or create user in database
+    const dbUser = await userService.getOrCreateUser({
+      googleId: googleUser.id,
       email: googleUser.email,
       name: googleUser.name,
-      picture: googleUser.picture || undefined,
+      avatarUrl: googleUser.picture,
+    });
+    
+    // Generate JWT token with database user ID
+    const jwtToken = generateToken({
+      userId: dbUser.id,
+      email: dbUser.email,
+      name: dbUser.name,
+      picture: dbUser.avatarUrl || undefined,
     });
 
     logger.info('User authenticated via Google OAuth', { 
-      userId: googleUser.id, 
-      email: googleUser.email 
+      userId: dbUser.id, 
+      googleId: dbUser.googleId,
+      email: dbUser.email 
     });
     
     res.status(200).json({
@@ -72,10 +82,10 @@ router.post('/google', async (req: Request, res: Response) => {
       data: {
         token: jwtToken,
         user: {
-          id: googleUser.id,
-          email: googleUser.email,
-          name: googleUser.name,
-          picture: googleUser.picture,
+          id: dbUser.id,
+          email: dbUser.email,
+          name: dbUser.name,
+          picture: dbUser.avatarUrl,
           verified: googleUser.verified_email
         }
       },

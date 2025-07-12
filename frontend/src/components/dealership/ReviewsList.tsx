@@ -10,12 +10,15 @@ import {
 import { DealershipReview, ReviewsPaginatedResponse } from '../../types/dealership';
 import ReviewCard from './ReviewCard';
 import reviewService from '../../services/reviewService';
+import { useAuth } from '../../contexts/AuthContext';
 
 interface ReviewsListProps {
   placeId: string;
+  refreshTrigger?: number;
 }
 
-const ReviewsList: React.FC<ReviewsListProps> = ({ placeId }) => {
+const ReviewsList: React.FC<ReviewsListProps> = ({ placeId, refreshTrigger }) => {
+  const { user } = useAuth();
   const [reviews, setReviews] = useState<DealershipReview[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -66,6 +69,14 @@ const ReviewsList: React.FC<ReviewsListProps> = ({ placeId }) => {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [placeId]);
 
+  // Refresh reviews when refreshTrigger changes
+  useEffect(() => {
+    if (refreshTrigger && refreshTrigger > 0) {
+      fetchReviews(1, false);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [refreshTrigger]);
+
   const handleLoadMore = () => {
     if (!loadingMore && pagination.hasNext) {
       fetchReviews(pagination.page + 1, true);
@@ -115,7 +126,7 @@ const ReviewsList: React.FC<ReviewsListProps> = ({ placeId }) => {
         <>
           {/* Reviews list */}
           {reviews.map((review) => (
-            <ReviewCard key={review.id} review={review} />
+            <ReviewCard key={review.id} review={review} currentUser={user} />
           ))}
 
           {/* Load more button */}

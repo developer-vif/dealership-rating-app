@@ -20,6 +20,7 @@ dotenv.config();
 const app = express();
 const PORT = process.env['PORT'] || 3001;
 
+
 // Security middleware - configure for OAuth
 app.use(helmet({
   crossOriginOpenerPolicy: { policy: "same-origin-allow-popups" },
@@ -64,6 +65,7 @@ app.use(express.urlencoded({ extended: true }));
 
 // Request logging
 app.use(requestLogger);
+
 
 // Routes
 app.use('/health', healthRoutes);

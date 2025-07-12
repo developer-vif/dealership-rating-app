@@ -19,6 +19,9 @@ export interface Dealership {
   longitude: number;
   googleRating: number;
   googleReviewCount: number;
+  // Our database ratings
+  averageRating: number;
+  reviewCount: number;
   brands: string[];
   hours: DealershipHours;
   description?: string;

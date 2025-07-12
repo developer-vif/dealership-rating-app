@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { DealershipReview, ReviewsPaginatedResponse } from '../types/dealership';
+import { anonymizeReviewerData } from '../utils/anonymization';
 
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3002';
 
@@ -40,8 +41,11 @@ class ReviewService {
         throw new Error('Failed to fetch reviews');
       }
 
+      // Anonymize all reviewer data before returning
+      const anonymizedReviews = response.data.data.map(review => anonymizeReviewerData(review));
+
       return {
-        reviews: response.data.data,
+        reviews: anonymizedReviews,
         pagination: response.data.pagination || {
           page,
           limit,
@@ -78,6 +82,22 @@ class ReviewService {
       return response.data.data;
     } catch (error) {
       console.error('❌ createReview API error:', error);
+      
+      // Handle axios error response
+      if (error && typeof error === 'object' && 'response' in error) {
+        const axiosError = error as any;
+        if (axiosError.response?.data?.error) {
+          const errorCode = axiosError.response.data.error.code;
+          const errorMessage = axiosError.response.data.error.message;
+          
+          if (errorCode === 'DUPLICATE_REVIEW') {
+            throw new Error(`DUPLICATE_REVIEW: ${errorMessage}`);
+          }
+          
+          throw new Error(errorMessage);
+        }
+      }
+      
       throw new Error('Failed to create review. Please try again.');
     }
   }

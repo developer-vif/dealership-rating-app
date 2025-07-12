@@ -265,13 +265,13 @@ const DealershipMap: React.FC<DealershipMapProps> = ({
 
                 <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
                   <Rating
-                    value={selectedMarker.googleRating}
+                    value={selectedMarker.averageRating || 0}
                     precision={0.1}
                     readOnly
                     size="small"
                   />
                   <Typography variant="body2" sx={{ ml: 1 }}>
-                    {selectedMarker.googleRating} ({selectedMarker.googleReviewCount} reviews)
+                    {selectedMarker.averageRating ? selectedMarker.averageRating.toFixed(1) : 'No rating'} ({selectedMarker.reviewCount || 0} review{selectedMarker.reviewCount !== 1 ? 's' : ''})
                   </Typography>
                 </Box>
 

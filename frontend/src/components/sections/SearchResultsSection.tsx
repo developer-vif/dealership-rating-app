@@ -2,6 +2,7 @@ import React from 'react';
 import { Paper, Typography } from '@mui/material';
 import SearchResults from '../search/SearchResults';
 import { Dealership, SearchResponse } from '../../types/dealership';
+import { SortOption } from '../search/SortControls';
 
 interface SearchResultsSectionProps {
   searchResults: SearchResponse | null;
@@ -12,6 +13,8 @@ interface SearchResultsSectionProps {
   error: string | null;
   onLoadMore: () => void;
   hasNextPage: boolean;
+  sortBy: SortOption;
+  onSortChange: (sortBy: SortOption) => void;
 }
 
 const SearchResultsSection: React.FC<SearchResultsSectionProps> = ({
@@ -23,6 +26,8 @@ const SearchResultsSection: React.FC<SearchResultsSectionProps> = ({
   error,
   onLoadMore,
   hasNextPage,
+  sortBy,
+  onSortChange,
 }) => {
   return (
     <Paper sx={{ p: 3, backgroundColor: 'grey.50' }}>
@@ -38,6 +43,8 @@ const SearchResultsSection: React.FC<SearchResultsSectionProps> = ({
         {...(onDealershipClick && { onDealershipClick })}
         onLoadMore={onLoadMore}
         hasNextPage={hasNextPage}
+        sortBy={sortBy}
+        onSortChange={onSortChange}
       />
     </Paper>
   );

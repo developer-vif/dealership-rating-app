@@ -16,6 +16,7 @@ import useGeolocation from '../hooks/useGeolocation';
 import dealershipService from '../services/dealershipService';
 import { getCurrentLocationName } from '../utils/locationUtils';
 import { Dealership, SearchParams, SearchResponse } from '../types/dealership';
+import { SortOption } from '../components/search/SortControls';
 
 const DealershipsPage: React.FC = () => {
   // Search and results state
@@ -31,6 +32,7 @@ const DealershipsPage: React.FC = () => {
   const [mapCenter, setMapCenter] = useState({ lat: 14.5995, lng: 120.9842 }); // Default to Manila
   const [searchRadius, setSearchRadius] = useState(10);
   const [initialSearchPerformed, setInitialSearchPerformed] = useState(false);
+  const [sortBy, setSortBy] = useState<SortOption>('distance');
   
   // Dialog state
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -160,6 +162,10 @@ const DealershipsPage: React.FC = () => {
     setDialogDealership(null);
   };
 
+  const handleSortChange = useCallback((newSortBy: SortOption) => {
+    setSortBy(newSortBy);
+  }, []);
+
   const hasResults = dealerships.length > 0;
   
   const searchResultsForChildren: SearchResponse | null = hasResults
@@ -222,6 +228,8 @@ const DealershipsPage: React.FC = () => {
                 error={error}
                 onLoadMore={handleLoadMore}
                 hasNextPage={!!nextPageToken}
+                sortBy={sortBy}
+                onSortChange={handleSortChange}
               />
             </Box>
           ) : (

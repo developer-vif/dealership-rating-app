@@ -13,15 +13,34 @@ import {
 import {
   ThumbUp as ThumbUpIcon,
   ThumbDown as ThumbDownIcon,
-  Verified as VerifiedIcon,
 } from '@mui/icons-material';
 import { DealershipReview } from '../../types/dealership';
+import { 
+  generateAnonymousUsername, 
+  generateAnonymousInitials, 
+  generateAnonymousAvatarColor 
+} from '../../utils/anonymization';
+import { User } from '../../contexts/AuthContext';
 
 interface ReviewCardProps {
   review: DealershipReview;
+  currentUser?: User | null;
 }
 
-const ReviewCard: React.FC<ReviewCardProps> = ({ review }) => {
+const ReviewCard: React.FC<ReviewCardProps> = ({ review, currentUser }) => {
+  // Check if this review belongs to the current user
+  const isCurrentUserReview = currentUser && review.userId === currentUser.id;
+  
+  // Generate user display information
+  const displayUsername = isCurrentUserReview ? currentUser.name : generateAnonymousUsername(review.userId);
+  const displayAvatarUrl = isCurrentUserReview ? currentUser.picture : null;
+  const displayInitials = isCurrentUserReview 
+    ? currentUser.name.charAt(0).toUpperCase() 
+    : generateAnonymousInitials(review.userId);
+  const displayAvatarColor = isCurrentUserReview 
+    ? 'primary.main' 
+    : generateAnonymousAvatarColor(review.userId);
+
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
     return date.toLocaleDateString('en-US', {
@@ -62,20 +81,23 @@ const ReviewCard: React.FC<ReviewCardProps> = ({ review }) => {
         <Box display="flex" justifyContent="space-between" alignItems="flex-start" mb={2}>
           <Box display="flex" alignItems="center" gap={2}>
             <Avatar
-              src={review.userAvatar}
-              alt={review.userName}
-              sx={{ width: 48, height: 48 }}
+              {...(displayAvatarUrl ? { src: displayAvatarUrl } : {})}
+              sx={{ 
+                width: 48, 
+                height: 48,
+                bgcolor: displayAvatarColor,
+                color: 'white',
+                fontWeight: 'bold'
+              }}
             >
-              {review.userName.charAt(0)}
+              {displayInitials}
             </Avatar>
             <Box>
               <Box display="flex" alignItems="center" gap={1}>
                 <Typography variant="subtitle1" fontWeight="medium">
-                  {review.userName}
+                  {displayUsername}
                 </Typography>
-                {review.isVerified && (
-                  <VerifiedIcon color="primary" fontSize="small" />
-                )}
+                {/* Verification badge removed for anonymity */}
               </Box>
               <Typography variant="caption" color="text.secondary">
                 {formatDate(review.createdAt)}

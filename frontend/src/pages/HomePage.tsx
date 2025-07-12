@@ -9,6 +9,7 @@ import {
   Grid,
   Card,
   CardContent,
+  CardMedia,
   Rating,
   Chip,
   CircularProgress,
@@ -235,6 +236,13 @@ const HomePage: React.FC = () => {
                   }}
                   onClick={() => handleDealershipClick(dealership)}
                 >
+                  <CardMedia
+                    component="img"
+                    height="160"
+                    image={dealership.photos?.[0] || '/assets/default-dealership.jpg'}
+                    alt={dealership.name}
+                    sx={{ objectFit: 'cover' }}
+                  />
                   <CardContent sx={{ flexGrow: 1 }}>
                     <Typography variant="h6" component="h3" gutterBottom>
                       {dealership.name}

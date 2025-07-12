@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import {
   Box,
   Grid,
@@ -10,6 +10,8 @@ import {
 } from '@mui/material';
 import { Dealership } from '../../types/dealership';
 import DealershipCard from '../dealership/DealershipCard';
+import SortControls, { SortOption } from './SortControls';
+import { sortDealerships } from '../../utils/sortingUtils';
 
 interface SearchResultsProps {
   dealerships: Dealership[];
@@ -20,6 +22,8 @@ interface SearchResultsProps {
   onDealershipSelect?: (dealership: Dealership) => void;
   onDealershipClick?: (dealership: Dealership) => void;
   selectedDealership?: Dealership | null;
+  sortBy: SortOption;
+  onSortChange: (sortBy: SortOption) => void;
 }
 
 const SearchResults: React.FC<SearchResultsProps> = ({
@@ -31,7 +35,13 @@ const SearchResults: React.FC<SearchResultsProps> = ({
   onDealershipSelect,
   onDealershipClick,
   selectedDealership,
+  sortBy,
+  onSortChange,
 }) => {
+  // Apply sorting to dealerships using useMemo for performance
+  const sortedDealerships = useMemo(() => {
+    return sortDealerships(dealerships, sortBy);
+  }, [dealerships, sortBy]);
 
   if (loading && dealerships.length === 0) {
     return (
@@ -83,11 +93,18 @@ const SearchResults: React.FC<SearchResultsProps> = ({
         Search Results
       </Typography>
 
+      {/* Sort Controls */}
+      <SortControls
+        sortBy={sortBy}
+        onSortChange={onSortChange}
+        totalResults={dealerships.length}
+      />
+
       <Divider sx={{ mb: 3 }} />
 
       {/* Dealership Cards Grid */}
       <Grid container spacing={3}>
-        {dealerships.map((dealership, index) => (
+        {sortedDealerships.map((dealership, index) => (
           <Grid item xs={12} sm={6} lg={4} key={`${dealership.id}-${index}`}>
             <DealershipCard
               dealership={dealership}

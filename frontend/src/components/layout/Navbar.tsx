@@ -17,7 +17,7 @@ import {
   IconButton
 } from '@mui/material';
 import { Link as RouterLink } from 'react-router-dom';
-import { Home, Search, Login, Logout, AccountCircle, Close } from '@mui/icons-material';
+import { Home, Login, Logout, AccountCircle, Close } from '@mui/icons-material';
 import { useAuth } from '../../contexts/AuthContext';
 import GoogleSignInButton from '../auth/GoogleSignInButton';
 
@@ -82,14 +82,6 @@ const Navbar: React.FC = () => {
                 Home
               </Button>
               
-              <Button
-                component={RouterLink}
-                to="/dealerships"
-                color="inherit"
-                startIcon={<Search />}
-              >
-                Browse Dealerships
-              </Button>
               
               {isAuthenticated ? (
                 <>

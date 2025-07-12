@@ -3,6 +3,7 @@ import {
   Card,
   CardContent,
   CardActions,
+  CardMedia,
   Typography,
   Rating,
   Button,
@@ -107,6 +108,13 @@ const DealershipCard: React.FC<DealershipCardProps> = ({
       }}
       onClick={onClick}
     >
+      <CardMedia
+        component="img"
+        height="160"
+        image={dealership.photos?.[0] || '/assets/default-dealership.jpg'}
+        alt={dealership.name}
+        sx={{ objectFit: 'cover' }}
+      />
       <CardContent sx={{ flexGrow: 1, pb: 1 }}>
         {/* Header */}
         <Box sx={{ mb: 2 }}>
@@ -116,13 +124,14 @@ const DealershipCard: React.FC<DealershipCardProps> = ({
           
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
             <Rating
-              value={dealership.googleRating}
+              value={dealership.averageRating || 0}
               precision={0.1}
               readOnly
               size="small"
             />
             <Typography variant="body2" color="text.secondary">
-              {dealership.googleRating} ({dealership.googleReviewCount} reviews)
+              {dealership.averageRating ? dealership.averageRating.toFixed(1) : 'No rating'} 
+              ({dealership.reviewCount || 0} review{dealership.reviewCount !== 1 ? 's' : ''})
             </Typography>
           </Box>
 

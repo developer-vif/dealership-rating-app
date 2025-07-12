@@ -13,6 +13,7 @@ import {
   Alert,
   Rating,
   Chip,
+  Avatar,
 } from '@mui/material';
 import {
   Close as CloseIcon,
@@ -43,9 +44,11 @@ const DealerDetailsDialog: React.FC<DealerDetailsDialogProps> = ({
   loading = false,
 }) => {
   const [reviewSubmitted, setReviewSubmitted] = useState(false);
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
 
   const handleReviewSubmit = () => {
     setReviewSubmitted(true);
+    setRefreshTrigger(prev => prev + 1); // Trigger reviews refresh
     // Reset after showing success message
     setTimeout(() => {
       setReviewSubmitted(false);
@@ -125,7 +128,22 @@ const DealerDetailsDialog: React.FC<DealerDetailsDialogProps> = ({
           }}
         >
           <Grid container spacing={3} alignItems="center">
-            <Grid item xs={12} md={8}>
+            {/* Dealer Photo */}
+            <Grid item xs={12} sm={3} md={2}>
+              <Avatar
+                src={dealership.photos?.[0] || '/assets/default-dealership.jpg'}
+                alt={dealership.name}
+                sx={{ 
+                  width: 100, 
+                  height: 100, 
+                  mx: 'auto',
+                  border: '2px solid',
+                  borderColor: 'grey.300'
+                }}
+              />
+            </Grid>
+            
+            <Grid item xs={12} sm={9} md={6}>
               <Typography variant="h6" gutterBottom>
                 {dealership.name}
               </Typography>
@@ -284,7 +302,7 @@ const DealerDetailsDialog: React.FC<DealerDetailsDialogProps> = ({
 
         {/* Existing Reviews Section */}
         <Box>
-          <ReviewsList placeId={dealership.googlePlaceId} />
+          <ReviewsList placeId={dealership.googlePlaceId} refreshTrigger={refreshTrigger} />
         </Box>
       </DialogContent>
     </Dialog>

@@ -13,6 +13,7 @@ import {
   Alert,
   AlertTitle,
   Slider,
+  Avatar,
 } from '@mui/material';
 import { Login as LoginIcon } from '@mui/icons-material';
 import { useGoogleReCaptcha } from 'react-google-recaptcha-v3';
@@ -20,6 +21,11 @@ import { Dealership } from '../../types/dealership';
 import { useAuth } from '../../contexts/AuthContext';
 import GoogleSignInButton from '../auth/GoogleSignInButton';
 import reviewService from '../../services/reviewService';
+import { 
+  generateAnonymousUsername, 
+  generateAnonymousInitials, 
+  generateAnonymousAvatarColor 
+} from '../../utils/anonymization';
 
 interface ReviewFormProps {
   dealership: Dealership;
@@ -459,28 +465,28 @@ const ReviewForm: React.FC<ReviewFormProps> = ({ dealership, onSubmit }) => {
         </Box>
       </Paper>
 
-      {/* User Info */}
+      {/* User Info - Anonymized */}
       {user && (
         <Paper elevation={0} sx={{ p: 2, mb: 3, bgcolor: 'primary.light', color: 'primary.contrastText' }}>
           <Box display="flex" alignItems="center" gap={2}>
-            {user.picture && (
-              <Box
-                component="img"
-                src={user.picture}
-                alt={user.name}
-                sx={{
-                  width: 32,
-                  height: 32,
-                  borderRadius: '50%',
-                }}
-              />
-            )}
+            <Avatar
+              sx={{ 
+                width: 32, 
+                height: 32,
+                bgcolor: generateAnonymousAvatarColor(user.id),
+                color: 'white',
+                fontWeight: 'bold',
+                fontSize: '0.875rem'
+              }}
+            >
+              {generateAnonymousInitials(user.id)}
+            </Avatar>
             <Box>
               <Typography variant="body2" fontWeight="medium">
-                Writing as {user.name}
+                Writing as {generateAnonymousUsername(user.id)}
               </Typography>
               <Typography variant="caption" sx={{ opacity: 0.8 }}>
-                {user.email}
+                Your review will be posted anonymously
               </Typography>
             </Box>
           </Box>
@@ -665,10 +671,7 @@ const ReviewForm: React.FC<ReviewFormProps> = ({ dealership, onSubmit }) => {
       </Paper>
 
       {/* Form Actions */}
-      <Box display="flex" justifyContent="flex-end" gap={2}>
-        <Button variant="outlined" type="button" disabled={submitting}>
-          Cancel
-        </Button>
+      <Box display="flex" justifyContent="center">
         <Button 
           variant="contained" 
           type="submit" 
