@@ -15,12 +15,13 @@ import {
   Slider,
   Avatar,
 } from '@mui/material';
-import { Login as LoginIcon } from '@mui/icons-material';
+import { Login as LoginIcon, Delete } from '@mui/icons-material';
 import { useGoogleReCaptcha } from 'react-google-recaptcha-v3';
 import { Dealership } from '../../types/dealership';
 import { useAuth } from '../../contexts/AuthContext';
 import GoogleSignInButton from '../auth/GoogleSignInButton';
 import reviewService from '../../services/reviewService';
+import ConfirmationDialog from '../dialogs/ConfirmationDialog';
 import { 
   generateAnonymousUsername, 
   generateAnonymousInitials, 
@@ -28,8 +29,24 @@ import {
 } from '../../utils/anonymization';
 
 interface ReviewFormProps {
-  dealership: Dealership;
-  onSubmit: () => void;
+  dealership?: Dealership;
+  dealershipId?: string;
+  dealershipName?: string;
+  onSubmit?: () => void;
+  editMode?: boolean;
+  initialData?: {
+    rating: number;
+    title: string;
+    content: string;
+    receiptProcessingTime: string;
+    platesProcessingTime: string;
+    visitDate: string;
+  };
+  reviewId?: string;
+  onSubmitting?: (submitting: boolean) => void;
+  onSuccess?: () => void;
+  onError?: (error: string) => void;
+  onFormChange?: (hasChanges: boolean) => void;
 }
 
 interface FormData {
@@ -79,6 +96,18 @@ const convertScoreToApiValue = (score: number): string => {
   return apiValues[score as keyof typeof apiValues] || 'longer';
 };
 
+const convertApiValueToScore = (apiValue: string): number => {
+  const scoreValues = {
+    'longer': 0,
+    '2-months': 1,
+    '1-month': 2,
+    '2-weeks': 3,
+    '1-week': 4,
+    'same-day': 4 // Map same-day to highest score
+  };
+  return scoreValues[apiValue as keyof typeof scoreValues] || 0;
+};
+
 const ratingDescriptions = {
   5: 'Excellent - Very Fast Processing',
   4: 'Good - Fast Processing',
@@ -87,21 +116,57 @@ const ratingDescriptions = {
   1: 'Poor - Very Slow Processing',
 };
 
-const ReviewForm: React.FC<ReviewFormProps> = ({ dealership, onSubmit }) => {
+const ReviewForm: React.FC<ReviewFormProps> = ({ 
+  dealership, 
+  dealershipId,
+  dealershipName,
+  onSubmit, 
+  editMode = false,
+  initialData,
+  reviewId,
+  onSubmitting,
+  onSuccess,
+  onError,
+  onFormChange
+}) => {
   const { user, isAuthenticated } = useAuth();
   const { executeRecaptcha } = useGoogleReCaptcha();
-  const [formData, setFormData] = useState<FormData>({
-    receiptTime: 2,
-    platesTime: 2,
-    reviewText: '',
-    acceptTerms: false,
-    recaptchaToken: null,
-  });
+  
+  // Initialize form data based on mode
+  const getInitialFormData = (): FormData => {
+    if (editMode && initialData) {
+      return {
+        receiptTime: convertApiValueToScore(initialData.receiptProcessingTime),
+        platesTime: convertApiValueToScore(initialData.platesProcessingTime),
+        reviewText: initialData.content,
+        acceptTerms: false, // Always unchecked on load
+        recaptchaToken: null,
+      };
+    }
+    return {
+      receiptTime: 2,
+      platesTime: 2,
+      reviewText: '',
+      acceptTerms: false,
+      recaptchaToken: null,
+    };
+  };
+  
+  const [formData, setFormData] = useState<FormData>(getInitialFormData());
+  const [originalFormData, setOriginalFormData] = useState<FormData | null>(null);
 
   const [errors, setErrors] = useState<FormErrors>({});
   const [calculatedRating, setCalculatedRating] = useState<number | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [duplicateReviewError, setDuplicateReviewError] = useState(false);
+  const [showUpdateConfirmation, setShowUpdateConfirmation] = useState(false);
+  const [showDeleteConfirmation, setShowDeleteConfirmation] = useState(false);
+
+  // Check if form has changes (for edit mode)
+  const hasFormChanges = editMode && originalFormData ? 
+    formData.receiptTime !== originalFormData.receiptTime ||
+    formData.platesTime !== originalFormData.platesTime ||
+    formData.reviewText !== originalFormData.reviewText : false;
 
   const calculateRating = (receiptTime: number, platesTime: number) => {
     const receiptScore = receiptTime;
@@ -113,6 +178,32 @@ const ReviewForm: React.FC<ReviewFormProps> = ({ dealership, onSubmit }) => {
     
     setCalculatedRating(starRating);
   };
+
+  // Store original form data when component mounts or initialData changes
+  useEffect(() => {
+    if (editMode && initialData) {
+      const initialFormData = {
+        receiptTime: convertApiValueToScore(initialData.receiptProcessingTime),
+        platesTime: convertApiValueToScore(initialData.platesProcessingTime),
+        reviewText: initialData.content,
+        acceptTerms: false,
+        recaptchaToken: null,
+      };
+      setOriginalFormData(initialFormData);
+    }
+  }, [editMode, initialData]);
+
+  // Check for form changes and notify parent component
+  useEffect(() => {
+    if (editMode && originalFormData && onFormChange) {
+      const hasChanges = 
+        formData.receiptTime !== originalFormData.receiptTime ||
+        formData.platesTime !== originalFormData.platesTime ||
+        formData.reviewText !== originalFormData.reviewText;
+      
+      onFormChange(hasChanges);
+    }
+  }, [formData, originalFormData, editMode, onFormChange]);
 
   // Calculate initial rating when component mounts
   useEffect(() => {
@@ -187,69 +278,150 @@ const ReviewForm: React.FC<ReviewFormProps> = ({ dealership, onSubmit }) => {
       return;
     }
 
+    if (editMode) {
+      // Show confirmation dialog for updates
+      setShowUpdateConfirmation(true);
+    } else {
+      // For new reviews, proceed directly (with reCAPTCHA)
+      await submitReview();
+    }
+  };
+
+  const submitReview = async () => {
+    if (calculatedRating === null) {
+      onError?.('Unable to calculate rating. Please try again.') || alert('Unable to calculate rating. Please try again.');
+      return;
+    }
+
     setSubmitting(true);
+    onSubmitting?.(true);
 
     try {
-      // Execute reCAPTCHA v3
-      if (!executeRecaptcha) {
-        throw new Error('reCAPTCHA not available');
+      if (editMode) {
+        // Edit mode - update existing review
+        if (!reviewId) {
+          throw new Error('Review ID is required for edit mode');
+        }
+
+        const updateData = {
+          rating: calculatedRating,
+          title: `${calculatedRating} star${calculatedRating !== 1 ? 's' : ''} - ${
+            calculatedRating >= 5 ? 'Excellent' : 
+            calculatedRating >= 4 ? 'Good' : 
+            calculatedRating >= 3 ? 'Average' : 
+            calculatedRating >= 2 ? 'Below Average' : 'Poor'
+          } experience`,
+          content: formData.reviewText,
+          receiptProcessingTime: convertScoreToApiValue(formData.receiptTime),
+          platesProcessingTime: convertScoreToApiValue(formData.platesTime),
+        };
+
+        console.log('Updating review:', updateData);
+        const result = await reviewService.updateReview(reviewId, updateData);
+        console.log('Review updated successfully:', result);
+
+        onSuccess?.();
+      } else {
+        // Create mode - create new review
+        if (!executeRecaptcha) {
+          throw new Error('reCAPTCHA not available');
+        }
+        
+        const recaptchaToken = await executeRecaptcha('submit_review');
+        
+        if (!recaptchaToken) {
+          throw new Error('reCAPTCHA verification failed');
+        }
+
+        // Generate a meaningful title based on rating
+        const title = `${calculatedRating} star${calculatedRating !== 1 ? 's' : ''} - ${
+          calculatedRating >= 5 ? 'Excellent' : 
+          calculatedRating >= 4 ? 'Good' : 
+          calculatedRating >= 3 ? 'Average' : 
+          calculatedRating >= 2 ? 'Below Average' : 'Poor'
+        } experience`;
+
+        const dealershipIdValue = dealership?.googlePlaceId || dealershipId;
+        if (!dealershipIdValue) {
+          throw new Error('Dealership ID is required');
+        }
+
+        const reviewData = {
+          dealershipId: dealershipIdValue,
+          rating: calculatedRating,
+          title,
+          content: formData.reviewText,
+          receiptProcessingTime: convertScoreToApiValue(formData.receiptTime),
+          platesProcessingTime: convertScoreToApiValue(formData.platesTime),
+          visitDate: new Date().toISOString().split('T')[0], // Current date
+          // Pass dealership information for auto-creation if needed
+          dealershipName: dealership?.name || dealershipName || 'Unknown Dealership',
+          // Include reCAPTCHA token
+          recaptchaToken: recaptchaToken,
+        };
+
+        console.log('Submitting review data:', reviewData);
+
+        // Make API call to create review using the review service
+        const result = await reviewService.createReview(reviewData);
+        console.log('Review created successfully:', result);
+
+        onSuccess?.() || onSubmit?.();
       }
-      
-      const recaptchaToken = await executeRecaptcha('submit_review');
-      
-      if (!recaptchaToken) {
-        throw new Error('reCAPTCHA verification failed');
-      }
-      // Generate a meaningful title based on rating
-      const title = `${calculatedRating} star${calculatedRating !== 1 ? 's' : ''} - ${
-        calculatedRating >= 5 ? 'Excellent' : 
-        calculatedRating >= 4 ? 'Good' : 
-        calculatedRating >= 3 ? 'Average' : 
-        calculatedRating >= 2 ? 'Below Average' : 'Poor'
-      } experience`;
-
-      const reviewData = {
-        dealershipId: dealership.googlePlaceId, // Use the Google Place ID
-        rating: calculatedRating,
-        title,
-        content: formData.reviewText,
-        receiptProcessingTime: convertScoreToApiValue(formData.receiptTime),
-        platesProcessingTime: convertScoreToApiValue(formData.platesTime),
-        visitDate: new Date().toISOString().split('T')[0], // Current date
-        // Pass dealership information for auto-creation if needed
-        dealershipName: dealership.name,
-        // Include reCAPTCHA token
-        recaptchaToken: recaptchaToken,
-      };
-
-      console.log('Submitting review data:', reviewData);
-
-      // Make API call to create review using the review service
-      const result = await reviewService.createReview(reviewData);
-      console.log('Review created successfully:', result);
-
-      onSubmit();
     } catch (error) {
-      console.error('Error submitting review:', error);
+      console.error(`Error ${editMode ? 'updating' : 'submitting'} review:`, error);
       
       // Check for specific error types
       if (error instanceof Error) {
         const errorMessage = error.message;
         
         if (errorMessage.includes('401')) {
-          alert('Your session has expired. Please sign in again to submit your review.');
+          const message = `Your session has expired. Please sign in again to ${editMode ? 'update' : 'submit'} your review.`;
+          onError?.(message) || alert(message);
         } else if (errorMessage.includes('already reviewed') || errorMessage.includes('DUPLICATE_REVIEW')) {
-          setDuplicateReviewError(true);
+          if (!editMode) {
+            setDuplicateReviewError(true);
+          }
         } else if (errorMessage.includes('reCAPTCHA') || errorMessage.includes('RECAPTCHA')) {
-          alert('Security verification failed. Please try again.');
+          const message = 'Security verification failed. Please try again.';
+          onError?.(message) || alert(message);
         } else {
-          alert(errorMessage || 'Failed to submit review. Please try again.');
+          const message = errorMessage || `Failed to ${editMode ? 'update' : 'submit'} review. Please try again.`;
+          onError?.(message) || alert(message);
         }
       } else {
-        alert('Failed to submit review. Please try again.');
+        const message = `Failed to ${editMode ? 'update' : 'submit'} review. Please try again.`;
+        onError?.(message) || alert(message);
       }
     } finally {
       setSubmitting(false);
+      onSubmitting?.(false);
+    }
+  };
+
+  const handleDeleteReview = async () => {
+    if (!reviewId) {
+      onError?.('Review ID is required for deletion') || alert('Review ID is required for deletion');
+      return;
+    }
+
+    setShowDeleteConfirmation(true);
+  };
+
+  const confirmDelete = async () => {
+    setSubmitting(true);
+    onSubmitting?.(true);
+
+    try {
+      await reviewService.deleteReview(reviewId!);
+      onSuccess?.();
+    } catch (error) {
+      console.error('Error deleting review:', error);
+      const message = error instanceof Error ? error.message : 'Failed to delete review. Please try again.';
+      onError?.(message) || alert(message);
+    } finally {
+      setSubmitting(false);
+      onSubmitting?.(false);
     }
   };
 
@@ -268,25 +440,29 @@ const ReviewForm: React.FC<ReviewFormProps> = ({ dealership, onSubmit }) => {
           }}
         >
           <Typography variant="h6" gutterBottom>
-            {dealership.name}
+            {dealership?.name || dealershipName || 'Dealership'}
           </Typography>
-          <Typography variant="body2" color="text.secondary" gutterBottom>
-            📍 {dealership.address}
-          </Typography>
-          <Box display="flex" alignItems="center" gap={1}>
-            <Rating
-              value={dealership.averageRating || 0}
-              readOnly
-              size="small"
-              precision={0.1}
-            />
-            <Typography variant="body2">
-              {dealership.averageRating ? dealership.averageRating.toFixed(1) : 'No rating'}
+          {dealership?.address && (
+            <Typography variant="body2" color="text.secondary" gutterBottom>
+              📍 {dealership.address}
             </Typography>
-            <Typography variant="body2" color="text.secondary">
-              ({dealership.reviewCount || 0} review{dealership.reviewCount !== 1 ? 's' : ''})
-            </Typography>
-          </Box>
+          )}
+          {dealership && (
+            <Box display="flex" alignItems="center" gap={1}>
+              <Rating
+                value={dealership.averageRating || 0}
+                readOnly
+                size="small"
+                precision={0.1}
+              />
+              <Typography variant="body2">
+                {dealership.averageRating ? dealership.averageRating.toFixed(1) : 'No rating'}
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                ({dealership.reviewCount || 0} review{dealership.reviewCount !== 1 ? 's' : ''})
+              </Typography>
+            </Box>
+          )}
         </Paper>
 
         {/* Login Required Message */}
@@ -333,25 +509,29 @@ const ReviewForm: React.FC<ReviewFormProps> = ({ dealership, onSubmit }) => {
           }}
         >
           <Typography variant="h6" gutterBottom>
-            {dealership.name}
+            {dealership?.name || dealershipName || 'Dealership'}
           </Typography>
-          <Typography variant="body2" color="text.secondary" gutterBottom>
-            📍 {dealership.address}
-          </Typography>
-          <Box display="flex" alignItems="center" gap={1}>
-            <Rating
-              value={dealership.averageRating || 0}
-              readOnly
-              size="small"
-              precision={0.1}
-            />
-            <Typography variant="body2">
-              {dealership.averageRating ? dealership.averageRating.toFixed(1) : 'No rating'}
+          {dealership?.address && (
+            <Typography variant="body2" color="text.secondary" gutterBottom>
+              📍 {dealership.address}
             </Typography>
-            <Typography variant="body2" color="text.secondary">
-              ({dealership.reviewCount || 0} review{dealership.reviewCount !== 1 ? 's' : ''})
-            </Typography>
-          </Box>
+          )}
+          {dealership && (
+            <Box display="flex" alignItems="center" gap={1}>
+              <Rating
+                value={dealership.averageRating || 0}
+                readOnly
+                size="small"
+                precision={0.1}
+              />
+              <Typography variant="body2">
+                {dealership.averageRating ? dealership.averageRating.toFixed(1) : 'No rating'}
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                ({dealership.reviewCount || 0} review{dealership.reviewCount !== 1 ? 's' : ''})
+              </Typography>
+            </Box>
+          )}
         </Paper>
 
         {/* User Info */}
@@ -386,7 +566,7 @@ const ReviewForm: React.FC<ReviewFormProps> = ({ dealership, onSubmit }) => {
         <Alert severity="warning" sx={{ mb: 3 }}>
           <AlertTitle>Review Already Submitted</AlertTitle>
           <Typography variant="body2" sx={{ mb: 2 }}>
-            You have already submitted a review for <strong>{dealership.name}</strong>. 
+            You have already submitted a review for <strong>{dealership?.name || dealershipName}</strong>. 
             Each user can only submit one review per dealership.
           </Typography>
           <Typography variant="body2" sx={{ mb: 2 }}>
@@ -444,25 +624,29 @@ const ReviewForm: React.FC<ReviewFormProps> = ({ dealership, onSubmit }) => {
         }}
       >
         <Typography variant="h6" gutterBottom>
-          {dealership.name}
+          {dealership?.name || dealershipName || 'Dealership'}
         </Typography>
-        <Typography variant="body2" color="text.secondary" gutterBottom>
-          📍 {dealership.address}
-        </Typography>
-        <Box display="flex" alignItems="center" gap={1}>
-          <Rating
-            value={dealership.googleRating}
-            readOnly
-            size="small"
-            precision={0.1}
-          />
-          <Typography variant="body2">
-            {dealership.googleRating}
+        {dealership?.address && (
+          <Typography variant="body2" color="text.secondary" gutterBottom>
+            📍 {dealership.address}
           </Typography>
-          <Typography variant="body2" color="text.secondary">
-            ({dealership.googleReviewCount} reviews)
-          </Typography>
-        </Box>
+        )}
+        {dealership && (
+          <Box display="flex" alignItems="center" gap={1}>
+            <Rating
+              value={dealership.googleRating}
+              readOnly
+              size="small"
+              precision={0.1}
+            />
+            <Typography variant="body2">
+              {dealership.googleRating}
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              ({dealership.googleReviewCount} reviews)
+            </Typography>
+          </Box>
+        )}
       </Paper>
 
       {/* User Info - Anonymized */}
@@ -663,23 +847,71 @@ const ReviewForm: React.FC<ReviewFormProps> = ({ dealership, onSubmit }) => {
         )}
       </Paper>
 
-      {/* Security Notice */}
-      <Paper elevation={0} sx={{ p: 3, mb: 3, bgcolor: 'info.light', color: 'info.contrastText' }}>
-        <Typography variant="body2" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          🔒 <strong>Security:</strong> This form is protected by reCAPTCHA v3 for spam prevention.
-        </Typography>
-      </Paper>
+      {/* Security Notice - Only show for create mode */}
+      {!editMode && (
+        <Paper elevation={0} sx={{ p: 3, mb: 3, bgcolor: 'info.light', color: 'info.contrastText' }}>
+          <Typography variant="body2" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            🔒 <strong>Security:</strong> This form is protected by reCAPTCHA v3 for spam prevention.
+          </Typography>
+        </Paper>
+      )}
 
       {/* Form Actions */}
-      <Box display="flex" justifyContent="center">
+      <Box display="flex" justifyContent="center" gap={2}>
+        {editMode && (
+          <Button 
+            variant="outlined" 
+            color="error"
+            onClick={handleDeleteReview}
+            disabled={submitting}
+            startIcon={<Delete />}
+          >
+            Delete Review
+          </Button>
+        )}
         <Button 
           variant="contained" 
           type="submit" 
-          disabled={submitting}
+          disabled={submitting || (editMode && !hasFormChanges)}
         >
-          {submitting ? 'Submitting...' : 'Submit Review'}
+          {submitting ? (editMode ? 'Updating...' : 'Submitting...') : (editMode ? 'Update Review' : 'Submit Review')}
         </Button>
       </Box>
+
+      {/* Confirmation Dialogs */}
+      <ConfirmationDialog
+        open={showUpdateConfirmation}
+        onClose={() => setShowUpdateConfirmation(false)}
+        onConfirm={() => {
+          setShowUpdateConfirmation(false);
+          submitReview();
+        }}
+        loading={submitting}
+        title="Update Review"
+        description="Are you sure you want to update your review? This will replace your existing review with the new information."
+        confirmText="Update Review"
+        cancelText="Cancel"
+        severity="info"
+        icon="edit"
+        itemName={initialData?.title || 'Review'}
+      />
+
+      <ConfirmationDialog
+        open={showDeleteConfirmation}
+        onClose={() => setShowDeleteConfirmation(false)}
+        onConfirm={() => {
+          setShowDeleteConfirmation(false);
+          confirmDelete();
+        }}
+        loading={submitting}
+        title="Delete Review"
+        description="Are you sure you want to delete your review? This action cannot be undone and your review will be permanently removed."
+        confirmText="Delete Review"
+        cancelText="Cancel"
+        severity="warning"
+        icon="delete"
+        itemName={initialData?.title || 'Review'}
+      />
     </Box>
   );
 };

@@ -302,7 +302,11 @@ const DealerDetailsDialog: React.FC<DealerDetailsDialogProps> = ({
 
         {/* Existing Reviews Section */}
         <Box>
-          <ReviewsList placeId={dealership.googlePlaceId} refreshTrigger={refreshTrigger} />
+          <ReviewsList 
+            placeId={dealership.googlePlaceId} 
+            dealershipName={dealership.name}
+            refreshTrigger={refreshTrigger} 
+          />
         </Box>
       </DialogContent>
     </Dialog>

@@ -285,7 +285,7 @@ router.delete('/:id', authenticateToken, async (req: Request, res: Response) => 
           success: false,
           error: {
             code: 'REVIEW_NOT_FOUND',
-            message: 'Review not found or you are not authorized to delete it'
+            message: 'Review not found or you are not authorized to delete it. It may have already been deleted.'
           }
         });
       }
@@ -296,6 +296,23 @@ router.delete('/:id', authenticateToken, async (req: Request, res: Response) => 
       error: {
         code: 'INTERNAL_SERVER_ERROR',
         message: 'An error occurred while deleting the review'
+      }
+    });
+  }
+});
+
+router.get('/dealership/:reviewId', async (req: Request, res: Response) => {
+  try {
+    const { reviewId } = req.params;
+    const dealership = await reviewService.getDealershipByReview(reviewId);
+    res.status(200).json({ success: true, data: dealership });
+  } catch (error) {
+    logger.error('Get dealership by review error', { error: error instanceof Error ? error.message : 'Unknown error' });
+    res.status(500).json({
+      success: false,
+      error: {
+        code: 'INTERNAL_SERVER_ERROR',
+        message: 'An error occurred while fetching dealership details'
       }
     });
   }

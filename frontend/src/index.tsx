@@ -11,6 +11,18 @@ import theme from './theme';
 import { AuthProvider } from './contexts/AuthContext';
 import './index.css';
 
+// Suppress CoreLocation console errors
+const originalConsoleError = console.error;
+console.error = (...args) => {
+  const message = args[0];
+  if (typeof message === 'string' && message.includes('kCLErrorLocationUnknown')) {
+    // Suppress CoreLocation errors to avoid user confusion
+    console.warn('Location service temporarily unavailable. This is normal and the app will continue to work.');
+    return;
+  }
+  originalConsoleError.apply(console, args);
+};
+
 // Create a client
 const queryClient = new QueryClient({
   defaultOptions: {

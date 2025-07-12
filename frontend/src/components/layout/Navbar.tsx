@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { 
   AppBar, 
   Toolbar, 
@@ -20,11 +20,35 @@ import { Link as RouterLink } from 'react-router-dom';
 import { Home, Login, Logout, AccountCircle, Close } from '@mui/icons-material';
 import { useAuth } from '../../contexts/AuthContext';
 import GoogleSignInButton from '../auth/GoogleSignInButton';
+import LogoutConfirmationDialog from '../auth/LogoutConfirmationDialog';
 
 const Navbar: React.FC = () => {
   const { user, logout, isAuthenticated } = useAuth();
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [loginDialogOpen, setLoginDialogOpen] = useState(false);
+  const [logoutDialogOpen, setLogoutDialogOpen] = useState(false);
+  
+  const loginDialogRef = useRef<HTMLDivElement>(null);
+  const previousFocusRef = useRef<HTMLElement | null>(null);
+
+  // Store the element that had focus before the login dialog opened
+  useEffect(() => {
+    if (loginDialogOpen) {
+      previousFocusRef.current = document.activeElement as HTMLElement;
+    }
+  }, [loginDialogOpen]);
+
+  // Restore focus when login dialog closes
+  useEffect(() => {
+    if (!loginDialogOpen && previousFocusRef.current) {
+      // Use setTimeout to ensure the dialog is fully closed before restoring focus
+      setTimeout(() => {
+        if (previousFocusRef.current && typeof previousFocusRef.current.focus === 'function') {
+          previousFocusRef.current.focus();
+        }
+      }, 100);
+    }
+  }, [loginDialogOpen]);
 
   const handleUserMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
     setAnchorEl(event.currentTarget);
@@ -48,8 +72,17 @@ const Navbar: React.FC = () => {
   };
 
   const handleLogout = () => {
-    logout();
+    setLogoutDialogOpen(true);
     handleUserMenuClose();
+  };
+
+  const handleLogoutConfirm = () => {
+    logout();
+    setLogoutDialogOpen(false);
+  };
+
+  const handleLogoutCancel = () => {
+    setLogoutDialogOpen(false);
   };
 
   return (
@@ -106,7 +139,6 @@ const Navbar: React.FC = () => {
                     anchorEl={anchorEl}
                     open={Boolean(anchorEl)}
                     onClose={handleUserMenuClose}
-                    onClick={handleUserMenuClose}
                     PaperProps={{
                       elevation: 0,
                       sx: {
@@ -124,7 +156,7 @@ const Navbar: React.FC = () => {
                     transformOrigin={{ horizontal: 'right', vertical: 'top' }}
                     anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
                   >
-                    <MenuItem onClick={handleUserMenuClose}>
+                    <MenuItem onClick={(e) => e.stopPropagation()}>
                       {user?.picture ? (
                         <Avatar
                           src={user.picture}
@@ -164,7 +196,15 @@ const Navbar: React.FC = () => {
       </AppBar>
 
       {/* Login Dialog */}
-      <Dialog open={loginDialogOpen} onClose={handleLoginDialogClose} maxWidth="sm" fullWidth>
+      <Dialog 
+        ref={loginDialogRef}
+        open={loginDialogOpen} 
+        onClose={handleLoginDialogClose} 
+        maxWidth="sm" 
+        fullWidth
+        disableRestoreFocus
+        disableAutoFocus
+      >
         <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           Sign In to DealerRate
           <IconButton onClick={handleLoginDialogClose}>
@@ -184,6 +224,13 @@ const Navbar: React.FC = () => {
           <Button onClick={handleLoginDialogClose}>Cancel</Button>
         </DialogActions>
       </Dialog>
+
+      {/* Logout Confirmation Dialog */}
+      <LogoutConfirmationDialog
+        open={logoutDialogOpen}
+        onClose={handleLogoutCancel}
+        onConfirm={handleLogoutConfirm}
+      />
     </>
   );
 };

@@ -71,7 +71,14 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           });
           
           if (response.data.success) {
-            setUser(response.data.data.user);
+            const userData = response.data.data.user;
+            console.log('🔐 Auth: User loaded from stored token:', {
+              userId: userData.id,
+              userEmail: userData.email,
+              userName: userData.name,
+              userIdType: typeof userData.id
+            });
+            setUser(userData);
           } else {
             // Token is invalid, remove it
             localStorage.removeItem('auth_token');
@@ -105,7 +112,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         setUser(userData);
         localStorage.setItem('auth_token', jwtToken);
         
-        console.log('User logged in successfully:', userData);
+        console.log('🔐 Auth: User logged in successfully:', {
+          userId: userData.id,
+          userEmail: userData.email,
+          userName: userData.name,
+          userIdType: typeof userData.id
+        });
       } else {
         throw new Error('Authentication failed');
       }

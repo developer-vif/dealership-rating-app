@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   Card,
   CardContent,
@@ -9,10 +9,15 @@ import {
   Chip,
   IconButton,
   Stack,
+  Menu,
+  MenuItem,
+  ListItemIcon,
+  ListItemText,
 } from '@mui/material';
 import {
-  ThumbUp as ThumbUpIcon,
-  ThumbDown as ThumbDownIcon,
+  MoreVert as MoreVertIcon,
+  Edit as EditIcon,
+  Delete as DeleteIcon,
 } from '@mui/icons-material';
 import { DealershipReview } from '../../types/dealership';
 import { 
@@ -25,11 +30,43 @@ import { User } from '../../contexts/AuthContext';
 interface ReviewCardProps {
   review: DealershipReview;
   currentUser?: User | null;
+  onEdit?: (review: DealershipReview) => void;
+  onDelete?: (review: DealershipReview) => void;
 }
 
-const ReviewCard: React.FC<ReviewCardProps> = ({ review, currentUser }) => {
+const ReviewCard: React.FC<ReviewCardProps> = ({ review, currentUser, onEdit, onDelete }) => {
+  const [menuAnchor, setMenuAnchor] = useState<HTMLElement | null>(null);
+  
+  // DEBUG: Log all relevant values for troubleshooting
+  console.log('🔍 ReviewCard Debug Info:', {
+    reviewId: review.id,
+    reviewTitle: review.title,
+    reviewUserId: review.userId,
+    currentUserId: currentUser?.id || 'NO_USER',
+    currentUserName: currentUser?.name || 'NO_USER',
+    hasOnEdit: typeof onEdit === 'function',
+    hasOnDelete: typeof onDelete === 'function',
+    userIdMatch: currentUser && review.userId === currentUser.id,
+    userIdTypes: {
+      reviewUserId: typeof review.userId,
+      currentUserId: typeof currentUser?.id
+    }
+  });
+
+  // TEMPORARY: Add visible indicator for owned reviews
+  if (currentUser && review.userId === currentUser.id) {
+    console.log('🎯 THIS IS YOUR REVIEW!', review.title);
+  }
+  
   // Check if this review belongs to the current user
   const isCurrentUserReview = currentUser && review.userId === currentUser.id;
+  
+  // DEBUG: Log final result
+  console.log('🎯 Review ownership check result:', {
+    reviewId: review.id,
+    isCurrentUserReview,
+    willShowMenu: isCurrentUserReview && (onEdit || onDelete)
+  });
   
   // Generate user display information
   const displayUsername = isCurrentUserReview ? currentUser.name : generateAnonymousUsername(review.userId);
@@ -74,6 +111,24 @@ const ReviewCard: React.FC<ReviewCardProps> = ({ review, currentUser }) => {
     return colors[time] || 'default';
   };
 
+  const handleMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
+    setMenuAnchor(event.currentTarget);
+  };
+
+  const handleMenuClose = () => {
+    setMenuAnchor(null);
+  };
+
+  const handleEdit = () => {
+    handleMenuClose();
+    onEdit?.(review);
+  };
+
+  const handleDelete = () => {
+    handleMenuClose();
+    onDelete?.(review);
+  };
+
   return (
     <Card sx={{ mb: 2 }}>
       <CardContent>
@@ -104,7 +159,40 @@ const ReviewCard: React.FC<ReviewCardProps> = ({ review, currentUser }) => {
               </Typography>
             </Box>
           </Box>
-          <Rating value={review.rating} readOnly size="small" />
+          <Box display="flex" alignItems="center" gap={1}>
+            <Rating value={review.rating} readOnly size="small" />
+            {/* Edit/Delete menu for current user's reviews */}
+            {(() => {
+              const showMenu = isCurrentUserReview && (onEdit || onDelete);
+              console.log('🎛️ Menu render check:', {
+                reviewId: review.id,
+                isCurrentUserReview,
+                hasCallbacks: !!(onEdit || onDelete),
+                showMenu,
+                renderingMenu: showMenu
+              });
+              
+              // TEMPORARY: Add visual indicator for debugging
+              if (isCurrentUserReview) {
+                console.log('⚠️ OWNED REVIEW BUT CHECKING MENU:', { 
+                  hasOnEdit: !!onEdit, 
+                  hasOnDelete: !!onDelete,
+                  showMenu 
+                });
+              }
+              
+              return showMenu;
+            })() && (
+              <IconButton
+                size="small"
+                onClick={handleMenuOpen}
+                aria-label="review options"
+                sx={{ color: 'text.secondary' }}
+              >
+                <MoreVertIcon fontSize="small" />
+              </IconButton>
+            )}
+          </Box>
         </Box>
 
         {/* Review title */}
@@ -155,27 +243,45 @@ const ReviewCard: React.FC<ReviewCardProps> = ({ review, currentUser }) => {
           </Box>
         )}
 
-        {/* Footer with helpful votes */}
+        {/* Footer */}
         <Box display="flex" justifyContent="space-between" alignItems="center">
           <Typography variant="caption" color="text.secondary">
             Visit date: {formatDate(review.visitDate)}
           </Typography>
-          <Box display="flex" alignItems="center" gap={1}>
-            <Box display="flex" alignItems="center">
-              <IconButton size="small" color="primary">
-                <ThumbUpIcon fontSize="small" />
-              </IconButton>
-              <Typography variant="caption">{review.helpfulVotes}</Typography>
-            </Box>
-            <Box display="flex" alignItems="center">
-              <IconButton size="small" color="default">
-                <ThumbDownIcon fontSize="small" />
-              </IconButton>
-              <Typography variant="caption">{review.unhelpfulVotes}</Typography>
-            </Box>
-          </Box>
         </Box>
       </CardContent>
+
+      {/* Edit/Delete Menu */}
+      <Menu
+        anchorEl={menuAnchor}
+        open={Boolean(menuAnchor)}
+        onClose={handleMenuClose}
+        anchorOrigin={{
+          vertical: 'bottom',
+          horizontal: 'right',
+        }}
+        transformOrigin={{
+          vertical: 'top',
+          horizontal: 'right',
+        }}
+      >
+        {onEdit && (
+          <MenuItem onClick={handleEdit}>
+            <ListItemIcon>
+              <EditIcon fontSize="small" />
+            </ListItemIcon>
+            <ListItemText>Edit Review</ListItemText>
+          </MenuItem>
+        )}
+        {onDelete && (
+          <MenuItem onClick={handleDelete} sx={{ color: 'error.main' }}>
+            <ListItemIcon sx={{ color: 'error.main' }}>
+              <DeleteIcon fontSize="small" />
+            </ListItemIcon>
+            <ListItemText>Delete Review</ListItemText>
+          </MenuItem>
+        )}
+      </Menu>
     </Card>
   );
 };

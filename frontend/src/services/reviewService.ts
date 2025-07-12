@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { DealershipReview, ReviewsPaginatedResponse } from '../types/dealership';
+import { Dealership, DealershipReview, ReviewsPaginatedResponse } from '../types/dealership';
 import { anonymizeReviewerData } from '../utils/anonymization';
 
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3002';
@@ -103,47 +103,62 @@ class ReviewService {
   }
 
   // Update a review
-  async updateReview(
-    reviewId: string,
-    reviewData: Partial<{
-      rating: number;
-      title: string;
-      content: string;
-      receiptProcessingTime: string;
-      platesProcessingTime: string;
-    }>
-  ): Promise<DealershipReview> {
-    try {
-      const response = await axios.put<ApiResponse<DealershipReview>>(`${this.baseURL}/${reviewId}`, reviewData, {
-        timeout: this.timeout,
-      });
+  async getDealershipByReview(reviewId: string): Promise<Dealership> {
+    const response = await axios.get(`${API_BASE_URL}/api/reviews/dealership/${reviewId}`);
+    return response.data.data;
+  }
 
-      if (!response.data.success) {
-        throw new Error('Failed to update review');
-      }
-
-      return response.data.data;
-    } catch (error) {
-      console.error('❌ updateReview API error:', error);
-      throw new Error('Failed to update review. Please try again.');
-    }
+  async updateReview(reviewId: string, data: any): Promise<any> {
+    const response = await axios.put(`${this.baseURL}/${reviewId}`, data);
+    return response.data.data;
   }
 
   // Delete a review
   async deleteReview(reviewId: string): Promise<void> {
     try {
-      const response = await axios.delete<ApiResponse<null>>(`${this.baseURL}/${reviewId}`, {
+      console.log('🗑️ Attempting to delete review:', reviewId);
+      
+      const response = await axios.delete(`${this.baseURL}/${reviewId}`, {
         timeout: this.timeout,
       });
 
-      if (!response.data.success) {
-        throw new Error('Failed to delete review');
+      console.log('🗑️ Delete response status:', response.status);
+      console.log('🗑️ Delete response data:', response.data);
+
+      // DELETE requests typically return 204 (No Content) on success
+      // or 404 if the resource doesn't exist
+      if (response.status === 204) {
+        // Success - review deleted
+        console.log('✅ Review deleted successfully');
+        return;
       }
+
+      // If we get here, something unexpected happened
+      console.log('❌ Unexpected response status:', response.status);
+      throw new Error('Failed to delete review');
     } catch (error) {
       console.error('❌ deleteReview API error:', error);
+      
+      // Handle specific error responses
+      if (error && typeof error === 'object' && 'response' in error) {
+        const axiosError = error as any;
+        console.log('❌ Axios error response:', {
+          status: axiosError.response?.status,
+          data: axiosError.response?.data,
+          message: axiosError.response?.data?.error?.message
+        });
+        
+        if (axiosError.response?.status === 404) {
+          throw new Error('Review not found. It may have already been deleted.');
+        } else if (axiosError.response?.data?.error?.message) {
+          throw new Error(axiosError.response.data.error.message);
+        }
+      }
+      
       throw new Error('Failed to delete review. Please try again.');
     }
   }
 }
 
-export default new ReviewService();
+const reviewService = new ReviewService();
+export default reviewService;

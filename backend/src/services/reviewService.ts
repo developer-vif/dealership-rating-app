@@ -387,6 +387,19 @@ class ReviewService {
   // Delete a review
   async deleteReview(reviewId: string, userId: string): Promise<void> {
     try {
+      logger.info('Attempting to delete review', { reviewId, userId });
+      
+      // First check if the review exists and belongs to the user
+      const checkQuery = `
+        SELECT id FROM reviews WHERE id = $1 AND user_id = $2
+      `;
+      const checkResult = await query(checkQuery, [reviewId, userId]);
+      
+      if (checkResult.rows.length === 0) {
+        logger.warn('Review not found or not authorized for deletion', { reviewId, userId });
+        throw new Error('Review not found or not authorized');
+      }
+      
       const deleteQuery = `
         DELETE FROM reviews 
         WHERE id = $1 AND user_id = $2
@@ -396,12 +409,31 @@ class ReviewService {
       if (result.rowCount === 0) {
         throw new Error('Review not found or not authorized');
       }
+      
+      logger.info('Review deleted successfully', { reviewId, userId });
     } catch (error) {
       logger.error('Error deleting review:', error);
       if (error instanceof Error) {
         throw error;
       }
       throw new Error('Failed to delete review');
+    }
+  }
+
+  async getDealershipByReview(reviewId: string): Promise<any> {
+    try {
+      logger.info('Attempting to fetch dealership by reviewId:', { reviewId }); // DEBUG LOG
+      const result = await query(
+        `SELECT d.* FROM dealerships d
+         INNER JOIN reviews r ON d.id = r.dealership_id
+         WHERE r.id = $1`,
+        [reviewId]
+      );
+      logger.info('Dealership query result:', { rows: result.rows }); // DEBUG LOG
+      return result.rows[0];
+    } catch (error) {
+      logger.error('Error fetching dealership by review:', error);
+      throw new Error('Failed to fetch dealership by review');
     }
   }
 

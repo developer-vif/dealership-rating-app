@@ -16,6 +16,11 @@
     "migrate:down": "npm run build && node dist/database/migrate.js down",
     "migrate:create": "npm run build && node dist/database/migrate.js create"
   },
+  "jest": {
+    "preset": "ts-jest",
+    "testEnvironment": "node",
+    "testMatch": ["**/src/**/*.test.ts"]
+  },
   "dependencies": {
     "@googlemaps/google-maps-services-js": "^3.4.2",
     "axios": "^1.6.2",

@@ -13,6 +13,7 @@ import {
   Typography,
   Chip,
   Alert,
+  AlertTitle,
   CircularProgress,
 } from '@mui/material';
 import {
@@ -95,6 +96,7 @@ const SearchForm: React.FC<SearchFormProps> = ({
     error: geoError,
     loading: geoLoading,
     getCurrentPosition,
+    retry: retryGeolocation,
   } = useGeolocation();
 
   // Update location when initialLocation prop changes
@@ -304,8 +306,28 @@ const SearchForm: React.FC<SearchFormProps> = ({
 
       {/* Geolocation Error */}
       {geoError && (
-        <Alert severity="warning" sx={{ mt: 1 }}>
+        <Alert 
+          severity="warning" 
+          sx={{ mt: 1 }}
+          action={
+            <Button 
+              color="inherit" 
+              size="small" 
+              onClick={retryGeolocation}
+            >
+              Retry
+            </Button>
+          }
+        >
+          <AlertTitle>Location Access Issue</AlertTitle>
           {geoError.message}. You can still search by entering a location manually.
+          <br />
+          <strong>To fix this:</strong>
+          <ul style={{ margin: '8px 0 0 0', paddingLeft: '20px' }}>
+            <li>Enable location services in your browser settings</li>
+            <li>Check your internet connection</li>
+            <li>Try refreshing the page</li>
+          </ul>
         </Alert>
       )}
 
