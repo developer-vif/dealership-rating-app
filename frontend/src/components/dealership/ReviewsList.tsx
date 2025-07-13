@@ -39,6 +39,9 @@ const ReviewsList: React.FC<ReviewsListProps> = ({ placeId, dealershipName, refr
   const [selectedReview, setSelectedReview] = useState<DealershipReview | null>(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [selectedDealership, setSelectedDealership] = useState<Dealership | null>(null);
+  
+  // Vote state management
+  const [userVotes, setUserVotes] = useState<{ [reviewId: string]: 'helpful' | 'unhelpful' | null }>({});
 
   const fetchReviews = async (page: number = 1, append: boolean = false) => {
     try {
@@ -62,6 +65,27 @@ const ReviewsList: React.FC<ReviewsListProps> = ({ placeId, dealershipName, refr
       }
 
       setPagination(response.pagination);
+
+      // Fetch user votes for the reviews if user is authenticated
+      if (user && response.reviews.length > 0) {
+        try {
+          const reviewIds = response.reviews.map(review => review.id);
+          const voteStatus = await reviewService.getBatchVoteStatus(reviewIds);
+          
+          if (append) {
+            setUserVotes(prev => ({ ...prev, ...Object.fromEntries(
+              Object.entries(voteStatus).map(([reviewId, data]) => [reviewId, data.userVote])
+            )}));
+          } else {
+            setUserVotes(Object.fromEntries(
+              Object.entries(voteStatus).map(([reviewId, data]) => [reviewId, data.userVote])
+            ));
+          }
+        } catch (voteError) {
+          console.warn('Failed to fetch vote status:', voteError);
+          // Don't fail the entire operation if vote fetching fails
+        }
+      }
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to load reviews';
       setError(errorMessage);
@@ -148,6 +172,23 @@ const ReviewsList: React.FC<ReviewsListProps> = ({ placeId, dealershipName, refr
     }
   };
 
+  const handleVoteUpdate = (reviewId: string, newCounts: { helpfulVotes: number; unhelpfulVotes: number }, newUserVote: 'helpful' | 'unhelpful' | null) => {
+    // Update vote counts in the review list
+    setReviews(prevReviews => 
+      prevReviews.map(review => 
+        review.id === reviewId 
+          ? { ...review, helpfulVotes: newCounts.helpfulVotes, unhelpfulVotes: newCounts.unhelpfulVotes }
+          : review
+      )
+    );
+    
+    // Update user vote state
+    setUserVotes(prev => ({
+      ...prev,
+      [reviewId]: newUserVote
+    }));
+  };
+
   const handleDialogClose = () => {
     if (!deleteLoading) {
       setEditDialogOpen(false);
@@ -205,7 +246,8 @@ const ReviewsList: React.FC<ReviewsListProps> = ({ placeId, dealershipName, refr
               currentUserId: user?.id || 'NO_USER',
               hasUser: !!user,
               hasHandleEdit: typeof handleEdit === 'function',
-              hasHandleDelete: typeof handleDelete === 'function'
+              hasHandleDelete: typeof handleDelete === 'function',
+              userVote: userVotes[review.id] || null
             });
             return (
               <ReviewCard 
@@ -214,6 +256,8 @@ const ReviewsList: React.FC<ReviewsListProps> = ({ placeId, dealershipName, refr
                 currentUser={user}
                 onEdit={handleEdit}
                 onDelete={handleDelete}
+                userVote={userVotes[review.id] || null}
+                onVoteUpdate={handleVoteUpdate}
               />
             );
           })}

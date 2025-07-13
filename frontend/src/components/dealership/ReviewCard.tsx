@@ -26,16 +26,31 @@ import {
   generateAnonymousAvatarColor 
 } from '../../utils/anonymization';
 import { User } from '../../contexts/AuthContext';
+import VoteButtons from '../review/VoteButtons';
 
 interface ReviewCardProps {
   review: DealershipReview;
   currentUser?: User | null;
   onEdit?: (review: DealershipReview) => void;
   onDelete?: (review: DealershipReview) => void;
+  userVote?: 'helpful' | 'unhelpful' | null;
+  onVoteUpdate?: (reviewId: string, newCounts: { helpfulVotes: number; unhelpfulVotes: number }, newUserVote: 'helpful' | 'unhelpful' | null) => void;
 }
 
-const ReviewCard: React.FC<ReviewCardProps> = ({ review, currentUser, onEdit, onDelete }) => {
+const ReviewCard: React.FC<ReviewCardProps> = ({ 
+  review, 
+  currentUser, 
+  onEdit, 
+  onDelete, 
+  userVote, 
+  onVoteUpdate 
+}) => {
   const [menuAnchor, setMenuAnchor] = useState<HTMLElement | null>(null);
+  const [localVoteCounts, setLocalVoteCounts] = useState({
+    helpfulVotes: review.helpfulVotes,
+    unhelpfulVotes: review.unhelpfulVotes
+  });
+  const [localUserVote, setLocalUserVote] = useState<'helpful' | 'unhelpful' | null>(userVote || null);
   
   // DEBUG: Log all relevant values for troubleshooting
   console.log('🔍 ReviewCard Debug Info:', {
@@ -127,6 +142,15 @@ const ReviewCard: React.FC<ReviewCardProps> = ({ review, currentUser, onEdit, on
   const handleDelete = () => {
     handleMenuClose();
     onDelete?.(review);
+  };
+
+  const handleVoteUpdate = (newCounts: { helpfulVotes: number; unhelpfulVotes: number }, newUserVote: 'helpful' | 'unhelpful' | null) => {
+    // Update local state for immediate UI feedback
+    setLocalVoteCounts(newCounts);
+    setLocalUserVote(newUserVote);
+    
+    // Notify parent component of vote change
+    onVoteUpdate?.(review.id, newCounts, newUserVote);
   };
 
   return (
@@ -248,6 +272,15 @@ const ReviewCard: React.FC<ReviewCardProps> = ({ review, currentUser, onEdit, on
           <Typography variant="caption" color="text.secondary">
             Visit date: {formatDate(review.visitDate)}
           </Typography>
+          
+          {/* Vote Buttons */}
+          <VoteButtons
+            reviewId={review.id}
+            helpfulVotes={localVoteCounts.helpfulVotes}
+            unhelpfulVotes={localVoteCounts.unhelpfulVotes}
+            userVote={localUserVote}
+            onVoteUpdate={handleVoteUpdate}
+          />
         </Box>
       </CardContent>
 

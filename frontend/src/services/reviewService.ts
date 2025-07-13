@@ -158,6 +158,137 @@ class ReviewService {
       throw new Error('Failed to delete review. Please try again.');
     }
   }
+
+  // Vote on a review
+  async voteOnReview(reviewId: string, voteType: 'helpful' | 'unhelpful'): Promise<{
+    voteSummary: { helpfulVotes: number; unhelpfulVotes: number };
+    userVote: 'helpful' | 'unhelpful' | null;
+  }> {
+    try {
+      const response = await axios.post(
+        `${this.baseURL}/${reviewId}/vote`,
+        { voteType },
+        {
+          timeout: this.timeout,
+        }
+      );
+
+      if (!response.data.success) {
+        throw new Error('Failed to submit vote');
+      }
+
+      return response.data.data;
+    } catch (error) {
+      console.error('❌ voteOnReview API error:', error);
+      
+      if (error && typeof error === 'object' && 'response' in error) {
+        const axiosError = error as any;
+        if (axiosError.response?.data?.error?.message) {
+          throw new Error(axiosError.response.data.error.message);
+        }
+      }
+      
+      throw new Error('Failed to submit vote. Please try again.');
+    }
+  }
+
+  // Remove vote from a review
+  async removeVote(reviewId: string): Promise<{
+    voteSummary: { helpfulVotes: number; unhelpfulVotes: number };
+    userVote: null;
+  }> {
+    try {
+      const response = await axios.delete(
+        `${this.baseURL}/${reviewId}/vote`,
+        {
+          timeout: this.timeout,
+        }
+      );
+
+      if (!response.data.success) {
+        throw new Error('Failed to remove vote');
+      }
+
+      return response.data.data;
+    } catch (error) {
+      console.error('❌ removeVote API error:', error);
+      
+      if (error && typeof error === 'object' && 'response' in error) {
+        const axiosError = error as any;
+        if (axiosError.response?.data?.error?.message) {
+          throw new Error(axiosError.response.data.error.message);
+        }
+      }
+      
+      throw new Error('Failed to remove vote. Please try again.');
+    }
+  }
+
+  // Get user's current vote on a review
+  async getUserVote(reviewId: string): Promise<{
+    voteSummary: { helpfulVotes: number; unhelpfulVotes: number };
+    userVote: 'helpful' | 'unhelpful' | null;
+  }> {
+    try {
+      const response = await axios.get(
+        `${this.baseURL}/${reviewId}/vote`,
+        {
+          timeout: this.timeout,
+        }
+      );
+
+      if (!response.data.success) {
+        throw new Error('Failed to get vote status');
+      }
+
+      return response.data.data;
+    } catch (error) {
+      console.error('❌ getUserVote API error:', error);
+      
+      if (error && typeof error === 'object' && 'response' in error) {
+        const axiosError = error as any;
+        if (axiosError.response?.data?.error?.message) {
+          throw new Error(axiosError.response.data.error.message);
+        }
+      }
+      
+      throw new Error('Failed to get vote status. Please try again.');
+    }
+  }
+
+  // Get vote status for multiple reviews (batch)
+  async getBatchVoteStatus(reviewIds: string[]): Promise<{
+    [reviewId: string]: {
+      voteSummary: { helpfulVotes: number; unhelpfulVotes: number };
+      userVote: 'helpful' | 'unhelpful' | null;
+    };
+  }> {
+    try {
+
+      // Make parallel requests for all review vote statuses
+      const promises = reviewIds.map(reviewId => 
+        this.getUserVote(reviewId).catch(error => {
+          console.warn(`Failed to get vote status for review ${reviewId}:`, error);
+          return null; // Return null for failed requests
+        })
+      );
+
+      const results = await Promise.all(promises);
+      
+      // Build result object
+      const voteStatusMap: { [reviewId: string]: any } = {};
+      reviewIds.forEach((reviewId, index) => {
+        if (results[index]) {
+          voteStatusMap[reviewId] = results[index];
+        }
+      });
+
+      return voteStatusMap;
+    } catch (error) {
+      console.error('❌ getBatchVoteStatus error:', error);
+      return {}; // Return empty object on error
+    }
+  }
 }
 
 const reviewService = new ReviewService();

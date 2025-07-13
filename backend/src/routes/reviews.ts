@@ -3,6 +3,7 @@ import Joi from 'joi';
 import { logger } from '../utils/logger';
 import reviewService from '../services/reviewService';
 import userService from '../services/userService';
+import voteService from '../services/voteService';
 import { authenticateToken } from '../middleware/auth';
 import { verifyRecaptcha } from '../services/recaptchaService';
 
@@ -31,6 +32,9 @@ const updateReviewSchema = Joi.object({
   platesProcessingTime: Joi.string().valid('same-day', '1-week', '2-weeks', '1-month', '2-months', 'longer').optional(),
 });
 
+const voteSchema = Joi.object({
+  voteType: Joi.string().valid('helpful', 'unhelpful').required(),
+});
 
 // GET /api/reviews/:placeId - Get reviews for dealership
 router.get('/:placeId', async (req: Request, res: Response) => {
@@ -340,6 +344,216 @@ router.get('/user/:userId', async (req: Request, res: Response) => {
       error: {
         code: 'INTERNAL_SERVER_ERROR',
         message: 'An error occurred while fetching user reviews'
+      }
+    });
+  }
+});
+
+// POST /api/reviews/:reviewId/vote - Vote on a review
+router.post('/:reviewId/vote', authenticateToken, async (req: Request, res: Response) => {
+  try {
+    const { reviewId } = req.params;
+    const userId = req.user!.userId;
+
+    // Validate request body
+    const { error, value } = voteSchema.validate(req.body);
+    if (error) {
+      return res.status(400).json({
+        success: false,
+        error: {
+          code: 'VALIDATION_ERROR',
+          message: error.details[0].message
+        },
+        meta: {
+          requestId: req.headers['x-request-id'] as string,
+          timestamp: new Date().toISOString()
+        }
+      });
+    }
+
+    const { voteType } = value;
+
+    // Validate review exists
+    const reviewExists = await voteService.validateReviewExists(reviewId);
+    if (!reviewExists) {
+      return res.status(404).json({
+        success: false,
+        error: {
+          code: 'REVIEW_NOT_FOUND',
+          message: 'Review not found'
+        },
+        meta: {
+          requestId: req.headers['x-request-id'] as string,
+          timestamp: new Date().toISOString()
+        }
+      });
+    }
+
+    // Cast vote
+    const isHelpful = voteType === 'helpful';
+    await voteService.voteOnReview(reviewId, userId, isHelpful);
+
+    // Get updated vote summary
+    const voteSummary = await voteService.getVoteSummary(reviewId);
+    const userVote = await voteService.getUserVote(reviewId, userId);
+
+    logger.info('Vote submitted successfully', {
+      reviewId,
+      userId,
+      voteType,
+      newCounts: voteSummary
+    });
+
+    res.status(200).json({
+      success: true,
+      data: {
+        voteSummary,
+        userVote: userVote.userVote
+      },
+      message: 'Vote submitted successfully',
+      meta: {
+        requestId: req.headers['x-request-id'] as string,
+        timestamp: new Date().toISOString()
+      }
+    });
+  } catch (error) {
+    logger.error('Vote submission error', { 
+      error: error instanceof Error ? error.message : 'Unknown error',
+      reviewId: req.params['reviewId'],
+      userId: req.user?.userId
+    });
+    res.status(500).json({
+      success: false,
+      error: {
+        code: 'INTERNAL_SERVER_ERROR',
+        message: 'An error occurred while submitting vote'
+      },
+      meta: {
+        requestId: req.headers['x-request-id'] as string,
+        timestamp: new Date().toISOString()
+      }
+    });
+  }
+});
+
+// DELETE /api/reviews/:reviewId/vote - Remove vote from a review
+router.delete('/:reviewId/vote', authenticateToken, async (req: Request, res: Response) => {
+  try {
+    const { reviewId } = req.params;
+    const userId = req.user!.userId;
+
+    // Validate review exists
+    const reviewExists = await voteService.validateReviewExists(reviewId);
+    if (!reviewExists) {
+      return res.status(404).json({
+        success: false,
+        error: {
+          code: 'REVIEW_NOT_FOUND',
+          message: 'Review not found'
+        },
+        meta: {
+          requestId: req.headers['x-request-id'] as string,
+          timestamp: new Date().toISOString()
+        }
+      });
+    }
+
+    // Remove vote
+    await voteService.removeVote(reviewId, userId);
+
+    // Get updated vote summary
+    const voteSummary = await voteService.getVoteSummary(reviewId);
+
+    logger.info('Vote removed successfully', {
+      reviewId,
+      userId,
+      newCounts: voteSummary
+    });
+
+    res.status(200).json({
+      success: true,
+      data: {
+        voteSummary,
+        userVote: null
+      },
+      message: 'Vote removed successfully',
+      meta: {
+        requestId: req.headers['x-request-id'] as string,
+        timestamp: new Date().toISOString()
+      }
+    });
+  } catch (error) {
+    logger.error('Vote removal error', { 
+      error: error instanceof Error ? error.message : 'Unknown error',
+      reviewId: req.params['reviewId'],
+      userId: req.user?.userId
+    });
+    res.status(500).json({
+      success: false,
+      error: {
+        code: 'INTERNAL_SERVER_ERROR',
+        message: 'An error occurred while removing vote'
+      },
+      meta: {
+        requestId: req.headers['x-request-id'] as string,
+        timestamp: new Date().toISOString()
+      }
+    });
+  }
+});
+
+// GET /api/reviews/:reviewId/vote - Get user's current vote on a review
+router.get('/:reviewId/vote', authenticateToken, async (req: Request, res: Response) => {
+  try {
+    const { reviewId } = req.params;
+    const userId = req.user!.userId;
+
+    // Validate review exists
+    const reviewExists = await voteService.validateReviewExists(reviewId);
+    if (!reviewExists) {
+      return res.status(404).json({
+        success: false,
+        error: {
+          code: 'REVIEW_NOT_FOUND',
+          message: 'Review not found'
+        },
+        meta: {
+          requestId: req.headers['x-request-id'] as string,
+          timestamp: new Date().toISOString()
+        }
+      });
+    }
+
+    // Get user's vote and vote summary
+    const userVote = await voteService.getUserVote(reviewId, userId);
+    const voteSummary = await voteService.getVoteSummary(reviewId);
+
+    res.status(200).json({
+      success: true,
+      data: {
+        voteSummary,
+        userVote: userVote.userVote
+      },
+      meta: {
+        requestId: req.headers['x-request-id'] as string,
+        timestamp: new Date().toISOString()
+      }
+    });
+  } catch (error) {
+    logger.error('Get vote error', { 
+      error: error instanceof Error ? error.message : 'Unknown error',
+      reviewId: req.params['reviewId'],
+      userId: req.user?.userId
+    });
+    res.status(500).json({
+      success: false,
+      error: {
+        code: 'INTERNAL_SERVER_ERROR',
+        message: 'An error occurred while fetching vote'
+      },
+      meta: {
+        requestId: req.headers['x-request-id'] as string,
+        timestamp: new Date().toISOString()
       }
     });
   }
