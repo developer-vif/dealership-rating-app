@@ -99,6 +99,7 @@ export interface SearchDealershipsParams {
   longitude?: number;
   radius?: number;
   brand?: string;
+  dealershipName?: string;
   pageToken?: string;
 }
 
@@ -136,17 +137,39 @@ class GooglePlacesService {
         logger.info('Fetching next page of results', { pageToken: params.pageToken, searchCenter });
       } else {
         let query = 'car dealership OR motorcycle dealership';
-        if (params.brand) {
+        if (params.dealershipName) {
+          // If dealership name is provided, use it as the primary query
+          if (params.brand) {
+            query = `${params.dealershipName} ${params.brand} dealership`;
+          } else {
+            query = params.dealershipName;
+          }
+        } else if (params.brand) {
           query = `${params.brand} dealership`;
         }
         searchParams.query = query;
+        
+        logger.info('Query construction for Google Places search', {
+          dealershipName: params.dealershipName,
+          brand: params.brand,
+          constructedQuery: query,
+          dealershipNameExists: !!params.dealershipName,
+          brandExists: !!params.brand
+        });
 
         // Prioritize coordinates over location string for more accurate radius-based search
         if (params.latitude && params.longitude) {
           searchParams.location = `${params.latitude},${params.longitude}`;
           searchParams.radius = (params.radius || DEFAULT_SEARCH_RADIUS_KM) * 1000; // Convert km to meters
           searchCenter = { latitude: params.latitude, longitude: params.longitude };
-          logger.info('Starting new search using coordinates', { query, latitude: params.latitude, longitude: params.longitude, radius: params.radius });
+          logger.info('Starting new search using coordinates', { 
+            query, 
+            latitude: params.latitude, 
+            longitude: params.longitude, 
+            radius: params.radius,
+            brand: params.brand,
+            dealershipName: params.dealershipName
+          });
         } else if (params.location) {
           // Geocode the location string first
           const geocodeResponse = await client.geocode({
@@ -158,14 +181,40 @@ class GooglePlacesService {
             searchParams.location = `${location.lat},${location.lng}`;
             searchParams.radius = (params.radius || DEFAULT_SEARCH_RADIUS_KM) * 1000;
             searchCenter = { latitude: location.lat, longitude: location.lng };
-            logger.info('Starting new search using geocoded location', { query, originalLocation: params.location, radius: params.radius });
+            logger.info('Starting new search using geocoded location', { 
+              query, 
+              originalLocation: params.location, 
+              radius: params.radius,
+              brand: params.brand,
+              dealershipName: params.dealershipName
+            });
           } else {
             logger.warn('Could not geocode location', { location: params.location });
             throw new Error('Could not find coordinates for the provided location.');
           }
         } else {
-          logger.warn('No location, coordinates, or pageToken provided for search');
-          throw new Error('Either location/coordinates for a new search or a pageToken for an existing one must be provided');
+          // No location provided - use default Philippines location as fallback
+          logger.info('No location provided, using default Philippines location for search', {
+            dealershipName: params.dealershipName,
+            brand: params.brand
+          });
+          
+          // Default to Manila, Philippines coordinates
+          const defaultLatitude = 14.5995;
+          const defaultLongitude = 120.9842;
+          
+          searchParams.location = `${defaultLatitude},${defaultLongitude}`;
+          searchParams.radius = (params.radius || DEFAULT_SEARCH_RADIUS_KM) * 1000;
+          searchCenter = { latitude: defaultLatitude, longitude: defaultLongitude };
+          
+          logger.info('Using default Philippines location for search', { 
+            query, 
+            latitude: defaultLatitude, 
+            longitude: defaultLongitude, 
+            radius: params.radius,
+            brand: params.brand,
+            dealershipName: params.dealershipName
+          });
         }
       }
 

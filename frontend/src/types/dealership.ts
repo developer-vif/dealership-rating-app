@@ -35,6 +35,7 @@ export interface SearchParams {
   longitude?: number;
   radius?: number;
   brand?: string | undefined;
+  dealershipName?: string | undefined;
   pageToken?: string;
 }
 

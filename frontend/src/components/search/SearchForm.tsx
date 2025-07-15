@@ -23,6 +23,7 @@ import {
 } from '@mui/icons-material';
 import useGeolocation from '../../hooks/useGeolocation';
 import { getCurrentLocationName } from '../../utils/locationUtils';
+import { detectUserCountry, getDefaultLocationForCountry } from '../../utils/countryUtils';
 import { SearchParams } from '../../types/dealership';
 
 interface SearchFormProps {
@@ -84,6 +85,7 @@ const SearchForm: React.FC<SearchFormProps> = ({
 }) => {
   const [location, setLocation] = useState(initialLocation || '');
   const [brand, setBrand] = useState('All Brands');
+  const [dealershipName, setDealershipName] = useState('');
   const [radius, setRadius] = useState(10);
   const [locationError, setLocationError] = useState<string | null>(null);
   const [isLoadingLocation, setIsLoadingLocation] = useState(false);
@@ -211,27 +213,43 @@ const SearchForm: React.FC<SearchFormProps> = ({
     setLocationError(null);
   };
 
-  const handleSearch = () => {
-    if (!location.trim() && !currentPosition) {
-      setLocationError('Please enter a location or use your current location');
-      return;
-    }
+  const handleSearch = async () => {
+    // Clear any previous errors
+    setLocationError(null);
 
     const searchParams: SearchParams = {
       radius,
       brand: brand === 'All Brands' ? undefined : brand,
+      dealershipName: dealershipName.trim() || undefined,
     };
 
     // If user has entered a location manually, use that instead of coordinates
-    // This allows users to search for locations different from their current position
     if (location.trim()) {
       searchParams.location = location.trim();
     } else if (currentPosition) {
       searchParams.latitude = currentPosition.latitude;
       searchParams.longitude = currentPosition.longitude;
+    } else {
+      // No location provided - use detected country as fallback
+      try {
+        setIsLoadingLocation(true);
+        const detectedCountry = await detectUserCountry();
+        const defaultLocation = getDefaultLocationForCountry(detectedCountry);
+        searchParams.location = defaultLocation;
+        
+        // Update the location field to show what we're using
+        setLocation(defaultLocation);
+        
+        console.log('Using detected country for search:', detectedCountry.name, 'with location:', defaultLocation);
+      } catch (error) {
+        console.error('Failed to detect country for search:', error);
+        setLocationError('Unable to determine location. Please enter a location manually.');
+        return;
+      } finally {
+        setIsLoadingLocation(false);
+      }
     }
-    
-    
+
     onSearch(searchParams);
   };
 
@@ -265,14 +283,14 @@ const SearchForm: React.FC<SearchFormProps> = ({
       {/* Location Input */}
       <TextField
         inputRef={locationInputRef}
-        label="Location"
+        label="Location (Optional)"
         value={location}
         onChange={(e) => setLocation(e.target.value)}
         onKeyPress={handleKeyPress}
-        placeholder="Enter city, state or address"
+        placeholder="Enter city, state or address (will use your country if blank)"
         fullWidth
         error={!!locationError}
-        helperText={locationError}
+        helperText={locationError || "Leave blank to search in your current country"}
         InputProps={{
           endAdornment: (
             <InputAdornment position="end">
@@ -331,6 +349,31 @@ const SearchForm: React.FC<SearchFormProps> = ({
         </Alert>
       )}
 
+      {/* Dealership Name Search */}
+      <TextField
+        label="Dealership Name (Optional)"
+        value={dealershipName}
+        onChange={(e) => setDealershipName(e.target.value)}
+        onKeyPress={handleKeyPress}
+        placeholder="Enter dealership name to filter results"
+        fullWidth
+        helperText="Filter by specific dealership name"
+        InputProps={{
+          endAdornment: dealershipName && (
+            <InputAdornment position="end">
+              <IconButton
+                onClick={() => setDealershipName('')}
+                edge="end"
+                size="small"
+                title="Clear dealership name"
+              >
+                <ClearIcon />
+              </IconButton>
+            </InputAdornment>
+          ),
+        }}
+      />
+
       {/* Search Radius */}
       <Box>
         <Typography gutterBottom>
@@ -378,12 +421,20 @@ const SearchForm: React.FC<SearchFormProps> = ({
       </FormControl>
 
       {/* Active Filters */}
-      {(brand !== 'All Brands' || radius !== 10) && (
+      {(brand !== 'All Brands' || radius !== 10 || dealershipName.trim()) && (
         <Box>
           <Typography variant="body2" color="text.secondary" gutterBottom>
             Active Filters:
           </Typography>
           <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+            {dealershipName.trim() && (
+              <Chip
+                label={`Name: ${dealershipName}`}
+                onDelete={() => setDealershipName('')}
+                size="small"
+                variant="outlined"
+              />
+            )}
             {brand !== 'All Brands' && (
               <Chip
                 label={`Brand: ${brand}`}
@@ -410,7 +461,7 @@ const SearchForm: React.FC<SearchFormProps> = ({
         variant="contained"
         size="large"
         startIcon={loading ? <CircularProgress size={20} /> : <SearchIcon />}
-        disabled={loading || !location.trim()}
+        disabled={loading}
         onClick={handleSearch}
         sx={{ py: 1.5 }}
       >

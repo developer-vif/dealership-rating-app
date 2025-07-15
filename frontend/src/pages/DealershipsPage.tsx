@@ -81,11 +81,8 @@ const DealershipsPage: React.FC = () => {
   }, []);
 
   const handleSearch = useCallback(async (inputParams: SearchParams) => {
-    if (!inputParams.location?.trim() && !(inputParams.latitude && inputParams.longitude)) {
-      setError('Please provide a location or coordinates to search');
-      return;
-    }
-
+    // The SearchForm component now handles missing location with country detection
+    // So we can remove the strict location requirement here
     const params: SearchParams = {
       ...inputParams,
       brand: inputParams.brand === 'All Brands' ? undefined : inputParams.brand,

@@ -106,17 +106,18 @@ router.get('/top-rated-dealerships', (req: Request, res: Response) => {
 // GET /api/dealerships/search - Enhanced with buffer strategy for radius filtering
 router.get('/search', async (req: Request, res: Response) => {
   try {
-    const { location, lat, lng, radius, brand, pageToken } = req.query;
+    const { location, lat, lng, radius, brand, dealershipName, pageToken } = req.query;
     
-    logger.info('Dealership search request', { location, lat, lng, radius, brand, pageToken });
+    logger.info('Dealership search request', { location, lat, lng, radius, brand, dealershipName, pageToken });
     
     const searchParams = {
-      location: location as string,
+      location: location ? (location as string) : undefined,
       latitude: lat ? parseFloat(lat as string) : undefined,
       longitude: lng ? parseFloat(lng as string) : undefined,
       radius: radius ? parseInt(radius as string) : 10,
-      brand: brand as string,
-      pageToken: pageToken as string,
+      brand: brand ? (brand as string) : undefined,
+      dealershipName: dealershipName ? (dealershipName as string) : undefined,
+      pageToken: pageToken ? (pageToken as string) : undefined,
     };
 
     // Determine if we need radius filtering
