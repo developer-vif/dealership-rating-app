@@ -24,7 +24,7 @@ const PORT = process.env['PORT'] || 3001;
 
 // Security middleware - configure for OAuth
 app.use(helmet({
-  crossOriginOpenerPolicy: { policy: "same-origin-allow-popups" },
+  crossOriginOpenerPolicy: false,
   crossOriginEmbedderPolicy: false,
   contentSecurityPolicy: {
     directives: {
