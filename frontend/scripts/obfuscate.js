@@ -3,53 +3,69 @@ const fs = require('fs');
 const path = require('path');
 const glob = require('glob');
 
-// Obfuscation configuration optimized for production
+// React-friendly obfuscation configuration
 const obfuscationOptions = {
-  // Control flow
-  controlFlowFlattening: true,
-  controlFlowFlatteningThreshold: 0.75,
+  // Control flow - reduced to prevent breaking React component lifecycle
+  controlFlowFlattening: false, // Disable to prevent breaking React
+  controlFlowFlatteningThreshold: 0.5,
   
-  // Dead code injection
-  deadCodeInjection: true,
-  deadCodeInjectionThreshold: 0.4,
+  // Dead code injection - reduced to prevent interference
+  deadCodeInjection: false, // Disable to prevent breaking React
+  deadCodeInjectionThreshold: 0.2,
   
-  // Debug protection
-  debugProtection: true,
-  debugProtectionInterval: 2000,
-  disableConsoleOutput: true,
+  // Debug protection - keep minimal to avoid breaking dev tools completely
+  debugProtection: false, // Disable to prevent breaking React DevTools
+  debugProtectionInterval: 0,
+  disableConsoleOutput: false, // Keep console for debugging if needed
   
   // Identifier names
   identifierNamesGenerator: 'hexadecimal',
-  renameGlobals: false, // Keep false to prevent breaking React/DOM globals
+  renameGlobals: false, // Critical: keep false to prevent breaking React/DOM globals
+  renameProperties: false, // Critical: prevent breaking React props/state
   
-  // String encryption
+  // String encryption - minimal to prevent breaking string-based functionality
   stringArray: true,
-  stringArrayThreshold: 0.75,
+  stringArrayThreshold: 0.3, // Reduced threshold
   stringArrayEncoding: ['base64'],
-  stringArrayRotate: true,
-  stringArrayShuffle: true,
+  stringArrayRotate: false, // Disable rotation to prevent issues
+  stringArrayShuffle: false, // Disable shuffling to prevent issues
   
-  // Code transformation
-  transformObjectKeys: true,
+  // Code transformation - minimal
+  transformObjectKeys: false, // Critical: prevent breaking React props/Material-UI
   unicodeEscapeSequence: false,
   
   // Performance optimizations
   compact: true,
-  numbersToExpressions: true,
+  numbersToExpressions: false, // Disable to prevent breaking calculations
   simplify: true,
   
-  // Prevent breaking functionality
+  // Prevent breaking functionality - expanded list
   reservedNames: [
-    // React/DOM globals
-    'React', 'ReactDOM', 'window', 'document', 'console',
+    // React core
+    'React', 'ReactDOM', 'Component', 'PureComponent', 'useState', 'useEffect', 'useCallback', 'useMemo', 'useRef', 'useContext',
+    // DOM/Browser globals
+    'window', 'document', 'console', 'setTimeout', 'setInterval', 'clearTimeout', 'clearInterval',
+    'localStorage', 'sessionStorage', 'location', 'history', 'navigator',
     // Google APIs
-    'google', 'gapi', 'grecaptcha',
-    // Common globals that should not be renamed
-    'process', 'require', 'module', 'exports', '__dirname', '__filename',
+    'google', 'gapi', 'grecaptcha', 'GoogleAuth', 'GoogleMap', 'Marker', 'InfoWindow',
+    // Common globals
+    'process', 'require', 'module', 'exports', '__dirname', '__filename', 'global',
     // Material-UI/Emotion related
-    'emotion', 'mui',
-    // Specific to our app
-    'REACT_APP_*'
+    'emotion', 'mui', 'styled', 'css', 'ThemeProvider', 'createTheme', 'useTheme',
+    // React Router
+    'BrowserRouter', 'Route', 'Routes', 'Navigate', 'useNavigate', 'useLocation', 'useParams',
+    // React Query
+    'QueryClient', 'QueryClientProvider', 'useQuery', 'useMutation',
+    // CSS/Style related
+    'className', 'style', 'styles', 'theme', 'palette', 'breakpoints',
+    // Environment variables
+    'REACT_APP_API_URL', 'REACT_APP_GOOGLE_MAPS_API_KEY', 'REACT_APP_GOOGLE_CLIENT_ID', 'REACT_APP_RECAPTCHA_SITE_KEY'
+  ],
+  
+  // Prevent breaking reserved words and property names
+  reservedStrings: [
+    'className', 'style', 'onClick', 'onChange', 'onSubmit', 'value', 'checked', 'disabled',
+    'children', 'props', 'state', 'ref', 'key', 'id', 'type', 'name', 'src', 'href', 'alt'
   ],
   
   // Source map

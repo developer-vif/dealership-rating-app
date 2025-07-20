@@ -42,6 +42,7 @@
     "start": "react-scripts start",
     "build": "react-scripts build",
     "build:production": "GENERATE_SOURCEMAP=false react-scripts build && npm run obfuscate",
+    "build:production-safe": "GENERATE_SOURCEMAP=false react-scripts build",
     "obfuscate": "node scripts/obfuscate.js",
     "test": "react-scripts test",
     "eject": "react-scripts eject",
