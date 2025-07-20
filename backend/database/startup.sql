@@ -33,14 +33,7 @@ BEGIN
         RAISE NOTICE 'Creating fresh database schema...';
     END IF;
     
-    -- Add admin role column if it doesn't exist
-    IF NOT EXISTS (
-        SELECT 1 FROM information_schema.columns 
-        WHERE table_name = 'users' AND column_name = 'is_admin'
-    ) THEN
-        ALTER TABLE users ADD COLUMN is_admin BOOLEAN DEFAULT FALSE;
-        RAISE NOTICE 'Added is_admin column to users table.';
-    END IF;
+    -- Note: is_admin column is included in the users table creation below
 END $$;
 
 -- Users table (Google OAuth integration)

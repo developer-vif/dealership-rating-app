@@ -1,7 +1,7 @@
 {
   "name": "dealership-rating-backend",
   "version": "1.0.0",
-  "description": "Backend API for dealership rating application",
+  "description": "ORCR Agad! - Backend API for dealership rating application",
   "main": "dist/server.js",
   "scripts": {
     "dev": "TS_NODE_TRANSPILE_ONLY=true nodemon src/server.ts",

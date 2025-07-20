@@ -1,7 +1,7 @@
 {
   "name": "dealership-rating-frontend",
   "version": "1.0.0",
-  "description": "Frontend application for dealership rating system",
+  "description": "ORCR Agad! - Frontend application for dealership rating system",
   "private": true,
   "dependencies": {
     "@emotion/react": "^11.11.1",

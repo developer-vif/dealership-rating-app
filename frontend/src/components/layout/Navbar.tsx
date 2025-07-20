@@ -102,7 +102,7 @@ const Navbar: React.FC = () => {
                 fontSize: '1.5rem'
               }}
             >
-              DealerRate
+              ORCR Agad!
             </Typography>
             
             <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
@@ -213,7 +213,7 @@ const Navbar: React.FC = () => {
         disableAutoFocus
       >
         <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          Sign In to DealerRate
+          Sign In to ORCR Agad!
           <IconButton onClick={handleLoginDialogClose}>
             <Close />
           </IconButton>

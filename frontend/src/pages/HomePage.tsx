@@ -156,7 +156,7 @@ const HomePage: React.FC = () => {
       >
         <Container maxWidth="md">
           <Typography variant="h1" component="h1" gutterBottom>
-            Discover dealerships that get your registration done fast - no endless waiting!
+            Inaabuso tayo ng mga dealership! Ibalik ang kapangyarihan sa konsumer!
           </Typography>
           <Typography variant="h6" sx={{ mb: 4, opacity: 0.9 }}>
             Read reviews, compare ratings, and share your dealership experiences
