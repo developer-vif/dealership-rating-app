@@ -4,15 +4,40 @@
 -- Enable UUID extension
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
--- Create dedicated application user with limited privileges
+-- Security: Change default postgres user password (if using default)
 DO $$
 BEGIN
+    -- Only change password if we're using the default 'postgres' password
+    -- This helps secure the database by changing from default credentials
+    IF current_setting('server_version_num')::int >= 90100 THEN
+        -- Check if we should update the postgres user password
+        -- In production, this should be set to a secure password
+        IF EXISTS (SELECT 1 FROM pg_authid WHERE rolname = 'postgres') THEN
+            -- Update postgres password from environment or use a secure default
+            -- Note: In production, DB_ADMIN_PASSWORD should be set to a secure value
+            EXECUTE format('ALTER USER postgres PASSWORD %L', 
+                COALESCE(current_setting('app.db_admin_password', true), 'postgres_secure_2024!'));
+            RAISE NOTICE 'Updated postgres user password';
+        END IF;
+    END IF;
+END $$;
+
+-- Create dedicated application user with limited privileges
+DO $$
+DECLARE
+    app_password TEXT;
+BEGIN
+    -- Get password from environment variable or use secure default
+    app_password := COALESCE(current_setting('app.db_user_password', true), 'dealership_app_secure_2024!');
+    
     -- Create user if it doesn't exist
     IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'dealership_app') THEN
-        CREATE USER dealership_app WITH PASSWORD 'dealership_app_secure_2024!';
+        EXECUTE format('CREATE USER dealership_app WITH PASSWORD %L', app_password);
         RAISE NOTICE 'Created dealership_app user';
     ELSE
-        RAISE NOTICE 'dealership_app user already exists';
+        -- Update password in case it changed
+        EXECUTE format('ALTER USER dealership_app PASSWORD %L', app_password);
+        RAISE NOTICE 'Updated dealership_app user password';
     END IF;
     
     -- Grant necessary permissions

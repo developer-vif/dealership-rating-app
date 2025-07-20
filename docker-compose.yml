@@ -7,6 +7,15 @@ services:
       POSTGRES_DB: ${DB_NAME}
       POSTGRES_USER: ${DB_ADMIN_USER}
       POSTGRES_PASSWORD: ${DB_ADMIN_PASSWORD}
+      # Pass passwords to startup script via custom PostgreSQL variables
+      POSTGRES_INITDB_ARGS: "--auth-host=md5 --auth-local=md5"
+      PGUSER: ${DB_ADMIN_USER}
+    command: >
+      bash -c "
+        # Set custom variables for the startup script
+        export PGOPTIONS='-c app.db_admin_password=${DB_ADMIN_PASSWORD} -c app.db_user_password=${DB_PASSWORD}'
+        exec docker-entrypoint.sh postgres
+      "
     ports:
       - "5433:5432"
     volumes:
