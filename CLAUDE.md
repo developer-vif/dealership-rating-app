@@ -294,8 +294,11 @@ GOOGLE_CLIENT_ID=your-google-client-id
 GOOGLE_CLIENT_SECRET=your-google-client-secret
 GOOGLE_MAPS_API_KEY=your-google-maps-api-key
 
-# Database
-DATABASE_URL=postgresql://postgres:postgres@postgres:5432/dealership_ratings
+# Database Configuration
+POSTGRES_DB=dealership_ratings
+POSTGRES_USER=postgres
+POSTGRES_PASSWORD=your-secure-postgres-password
+DATABASE_URL=postgresql://postgres:your-secure-postgres-password@postgres:5432/dealership_ratings
 
 # Redis
 REDIS_URL=redis://redis:6379
