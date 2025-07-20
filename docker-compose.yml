@@ -65,6 +65,7 @@ services:
       REACT_APP_RECAPTCHA_SITE_KEY: ${REACT_APP_RECAPTCHA_SITE_KEY}
       WDS_SOCKET_PORT: 0
       WDS_SOCKET_HOST: orcr-agad.com
+      WDS_SOCKET_PROTOCOL: wss
     expose:
       - "3000"
     depends_on:
@@ -85,8 +86,8 @@ services:
       - backend
     volumes:
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
-      - ./nginx/ssl/orcr-agad.com.crt:/etc/ssl/certs/orcr-agad.com.crt:ro
-      - ./nginx/ssl/orcr-agad.com.key:/etc/ssl/private/orcr-agad.com.key:ro
+      - ${SSL_CERT_PATH:-./nginx/ssl/orcr-agad.com.crt}:/etc/ssl/certs/orcr-agad.com.crt:ro
+      - ${SSL_KEY_PATH:-./nginx/ssl/orcr-agad.com.key}:/etc/ssl/private/orcr-agad.com.key:ro
     restart: unless-stopped
 
 volumes:
