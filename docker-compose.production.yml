@@ -52,7 +52,7 @@ services:
         condition: service_healthy
     volumes:
       - ./backend:/app
-    command: sh -c "npm install --production && npm run build && npm start"
+    command: sh -c "npm install --production && npm run build && echo 'Starting server...' && exec node dist/server.js"
 
   # Frontend with production build and obfuscation
   frontend:

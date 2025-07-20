@@ -97,12 +97,15 @@ if (process.env['NODE_ENV'] !== 'test') {
   app.listen(PORT, async () => {
     logger.info(`Server running on port ${PORT}`);
     logger.info(`Environment: ${process.env['NODE_ENV'] || 'development'}`);
+    logger.info('Testing database connection...');
     
     // Test database connection
     const dbConnected = await testConnection();
     if (!dbConnected) {
       logger.error('Failed to connect to database');
       process.exit(1);
+    } else {
+      logger.info('Database connection successful');
     }
   });
 }
