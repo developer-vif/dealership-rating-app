@@ -1,4 +1,4 @@
-import { query } from '../utils/database';
+import { query, transaction } from '../utils/database';
 import { logger } from '../utils/logger';
 
 export interface Vote {
@@ -20,123 +20,135 @@ export interface UserVoteStatus {
 
 class VoteService {
   async voteOnReview(reviewId: string, userId: string, isHelpful: boolean): Promise<void> {
-    const client = await query('BEGIN');
-    
     try {
-      // Check if user already has a vote on this review
-      const existingVoteQuery = `
-        SELECT id, is_helpful 
-        FROM review_votes 
-        WHERE review_id = $1 AND user_id = $2
-      `;
-      const existingVoteResult = await query(existingVoteQuery, [reviewId, userId]);
-      
-      if (existingVoteResult.rows.length > 0) {
-        const existingVote = existingVoteResult.rows[0];
-        
-        // If the vote is the same, remove it (toggle off)
-        if (existingVote.is_helpful === isHelpful) {
-          await this.removeVote(reviewId, userId);
-          await query('COMMIT');
-          return;
-        }
-        
-        // Update existing vote with new value
-        const updateVoteQuery = `
-          UPDATE review_votes 
-          SET is_helpful = $1, created_at = NOW()
-          WHERE review_id = $2 AND user_id = $3
+      await transaction(async (client) => {
+        // Check if user already has a vote on this review
+        const existingVoteQuery = `
+          SELECT id, is_helpful 
+          FROM review_votes 
+          WHERE review_id = $1 AND user_id = $2
         `;
-        await query(updateVoteQuery, [isHelpful, reviewId, userId]);
+        const existingVoteResult = await client.query(existingVoteQuery, [reviewId, userId]);
         
-        // Update the denormalized helpful_votes counter
-        const deltaChange = isHelpful ? 
-          (existingVote.is_helpful ? 0 : 1) : // helpful vote: no change if already helpful, +1 if was unhelpful
-          (existingVote.is_helpful ? -1 : 0); // unhelpful vote: -1 if was helpful, no change if was unhelpful
-        
-        if (deltaChange !== 0) {
-          const updateCountQuery = `
-            UPDATE reviews 
-            SET helpful_votes = helpful_votes + $1
-            WHERE id = $2
+        if (existingVoteResult.rows.length > 0) {
+          const existingVote = existingVoteResult.rows[0];
+          
+          // If the vote is the same, remove it (toggle off)
+          if (existingVote.is_helpful === isHelpful) {
+            // Remove the vote
+            const deleteVoteQuery = `
+              DELETE FROM review_votes 
+              WHERE review_id = $1 AND user_id = $2
+            `;
+            await client.query(deleteVoteQuery, [reviewId, userId]);
+            
+            // Update the denormalized helpful_votes counter
+            if (isHelpful) {
+              const updateCountQuery = `
+                UPDATE reviews 
+                SET helpful_votes = helpful_votes - 1
+                WHERE id = $1
+              `;
+              await client.query(updateCountQuery, [reviewId]);
+            }
+            
+            logger.info('Vote removed (toggled off)', { reviewId, userId, isHelpful });
+            return;
+          }
+          
+          // Update existing vote with new value
+          const updateVoteQuery = `
+            UPDATE review_votes 
+            SET is_helpful = $1, created_at = NOW()
+            WHERE review_id = $2 AND user_id = $3
           `;
-          await query(updateCountQuery, [deltaChange, reviewId]);
-        }
-      } else {
-        // Create new vote
-        const insertVoteQuery = `
-          INSERT INTO review_votes (review_id, user_id, is_helpful)
-          VALUES ($1, $2, $3)
-        `;
-        await query(insertVoteQuery, [reviewId, userId, isHelpful]);
-        
-        // Update the denormalized helpful_votes counter
-        if (isHelpful) {
-          const updateCountQuery = `
-            UPDATE reviews 
-            SET helpful_votes = helpful_votes + 1
-            WHERE id = $1
+          await client.query(updateVoteQuery, [isHelpful, reviewId, userId]);
+          
+          // Update the denormalized helpful_votes counter
+          if (existingVote.is_helpful && !isHelpful) {
+            // Changed from helpful to unhelpful: decrease helpful count
+            const updateCountQuery = `
+              UPDATE reviews 
+              SET helpful_votes = helpful_votes - 1
+              WHERE id = $1
+            `;
+            await client.query(updateCountQuery, [reviewId]);
+          } else if (!existingVote.is_helpful && isHelpful) {
+            // Changed from unhelpful to helpful: increase helpful count
+            const updateCountQuery = `
+              UPDATE reviews 
+              SET helpful_votes = helpful_votes + 1
+              WHERE id = $1
+            `;
+            await client.query(updateCountQuery, [reviewId]);
+          }
+          
+          logger.info('Vote updated', { reviewId, userId, isHelpful, previousVote: existingVote.is_helpful });
+        } else {
+          // Create new vote
+          const insertVoteQuery = `
+            INSERT INTO review_votes (review_id, user_id, is_helpful)
+            VALUES ($1, $2, $3)
           `;
-          await query(updateCountQuery, [reviewId]);
+          await client.query(insertVoteQuery, [reviewId, userId, isHelpful]);
+          
+          // Update the denormalized helpful_votes counter
+          if (isHelpful) {
+            const updateCountQuery = `
+              UPDATE reviews 
+              SET helpful_votes = helpful_votes + 1
+              WHERE id = $1
+            `;
+            await client.query(updateCountQuery, [reviewId]);
+          }
+          
+          logger.info('New vote created', { reviewId, userId, isHelpful });
         }
-      }
-      
-      await query('COMMIT');
-      
-      logger.info('Vote updated successfully', {
-        reviewId,
-        userId,
-        isHelpful,
-        action: existingVoteResult.rows.length > 0 ? 'update' : 'create'
       });
     } catch (error) {
-      await query('ROLLBACK');
       logger.error('Error updating vote', { error, reviewId, userId, isHelpful });
       throw error;
     }
   }
 
   async removeVote(reviewId: string, userId: string): Promise<void> {
-    const client = await query('BEGIN');
-    
     try {
-      // Get the existing vote to know if it was helpful
-      const existingVoteQuery = `
-        SELECT is_helpful 
-        FROM review_votes 
-        WHERE review_id = $1 AND user_id = $2
-      `;
-      const existingVoteResult = await query(existingVoteQuery, [reviewId, userId]);
-      
-      if (existingVoteResult.rows.length === 0) {
-        await query('COMMIT');
-        return; // No vote to remove
-      }
-      
-      const wasHelpful = existingVoteResult.rows[0].is_helpful;
-      
-      // Remove the vote
-      const deleteVoteQuery = `
-        DELETE FROM review_votes 
-        WHERE review_id = $1 AND user_id = $2
-      `;
-      await query(deleteVoteQuery, [reviewId, userId]);
-      
-      // Update the denormalized helpful_votes counter
-      if (wasHelpful) {
-        const updateCountQuery = `
-          UPDATE reviews 
-          SET helpful_votes = helpful_votes - 1
-          WHERE id = $1
+      await transaction(async (client) => {
+        // Get the existing vote to know if it was helpful
+        const existingVoteQuery = `
+          SELECT is_helpful 
+          FROM review_votes 
+          WHERE review_id = $1 AND user_id = $2
         `;
-        await query(updateCountQuery, [reviewId]);
-      }
-      
-      await query('COMMIT');
-      
-      logger.info('Vote removed successfully', { reviewId, userId, wasHelpful });
+        const existingVoteResult = await client.query(existingVoteQuery, [reviewId, userId]);
+        
+        if (existingVoteResult.rows.length === 0) {
+          logger.debug('No vote to remove', { reviewId, userId });
+          return; // No vote to remove
+        }
+        
+        const wasHelpful = existingVoteResult.rows[0].is_helpful;
+        
+        // Remove the vote
+        const deleteVoteQuery = `
+          DELETE FROM review_votes 
+          WHERE review_id = $1 AND user_id = $2
+        `;
+        await client.query(deleteVoteQuery, [reviewId, userId]);
+        
+        // Update the denormalized helpful_votes counter
+        if (wasHelpful) {
+          const updateCountQuery = `
+            UPDATE reviews 
+            SET helpful_votes = helpful_votes - 1
+            WHERE id = $1
+          `;
+          await client.query(updateCountQuery, [reviewId]);
+        }
+        
+        logger.info('Vote removed successfully', { reviewId, userId, wasHelpful });
+      });
     } catch (error) {
-      await query('ROLLBACK');
       logger.error('Error removing vote', { error, reviewId, userId });
       throw error;
     }
@@ -194,31 +206,33 @@ class VoteService {
     }
   }
 
-  async getUserVotes(reviewIds: string[], userId: string): Promise<UserVoteStatus[]> {
+  async getUserVotes(reviewIds: string[], userId: string): Promise<Record<string, 'helpful' | 'unhelpful' | null>> {
     try {
       if (reviewIds.length === 0) {
-        return [];
+        return {};
       }
       
-      const placeholders = reviewIds.map((_, index) => `$${index + 2}`).join(',');
       const getUserVotesQuery = `
         SELECT review_id, is_helpful 
         FROM review_votes 
-        WHERE user_id = $1 AND review_id IN (${placeholders})
+        WHERE review_id = ANY($1) AND user_id = $2
       `;
-      const result = await query(getUserVotesQuery, [userId, ...reviewIds]);
+      const result = await query(getUserVotesQuery, [reviewIds, userId]);
       
       // Create a map of existing votes
-      const voteMap = new Map<string, 'helpful' | 'unhelpful'>();
-      result.rows.forEach((row: any) => {
-        voteMap.set(row.review_id, row.is_helpful ? 'helpful' : 'unhelpful');
+      const voteMap: Record<string, 'helpful' | 'unhelpful' | null> = {};
+      
+      // Initialize all reviews with null
+      reviewIds.forEach(reviewId => {
+        voteMap[reviewId] = null;
       });
       
-      // Return status for all requested reviews
-      return reviewIds.map(reviewId => ({
-        reviewId,
-        userVote: voteMap.get(reviewId) || null
-      }));
+      // Set actual votes
+      result.rows.forEach((row: any) => {
+        voteMap[row.review_id] = row.is_helpful ? 'helpful' : 'unhelpful';
+      });
+      
+      return voteMap;
     } catch (error) {
       logger.error('Error getting user votes', { error, reviewIds, userId });
       throw error;

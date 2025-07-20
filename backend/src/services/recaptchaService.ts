@@ -2,7 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import axios from 'axios';
 import { logger } from '../utils/logger';
 
-const recaptchaSecret = process.env.RECAPTCHA_SECRET_KEY || '';
+const recaptchaSecret = process.env['RECAPTCHA_SECRET_KEY'] || '';
 
 if (!recaptchaSecret) {
   logger.warn('RECAPTCHA_SECRET_KEY not configured. reCAPTCHA verification will be disabled.');

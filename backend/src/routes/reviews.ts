@@ -237,7 +237,7 @@ router.put('/:id', authenticateToken, async (req: Request, res: Response) => {
           success: false,
           error: {
             code: 'REVIEW_NOT_FOUND',
-            message: 'Review not found or you are not authorized to update it'
+            message: 'Review not found'
           }
         });
       }
@@ -289,7 +289,7 @@ router.delete('/:id', authenticateToken, async (req: Request, res: Response) => 
           success: false,
           error: {
             code: 'REVIEW_NOT_FOUND',
-            message: 'Review not found or you are not authorized to delete it. It may have already been deleted.'
+            message: 'Review not found'
           }
         });
       }

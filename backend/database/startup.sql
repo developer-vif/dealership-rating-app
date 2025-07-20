@@ -32,6 +32,15 @@ BEGIN
     ELSE
         RAISE NOTICE 'Creating fresh database schema...';
     END IF;
+    
+    -- Add admin role column if it doesn't exist
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_name = 'users' AND column_name = 'is_admin'
+    ) THEN
+        ALTER TABLE users ADD COLUMN is_admin BOOLEAN DEFAULT FALSE;
+        RAISE NOTICE 'Added is_admin column to users table.';
+    END IF;
 END $$;
 
 -- Users table (Google OAuth integration)
@@ -41,6 +50,7 @@ CREATE TABLE IF NOT EXISTS users (
     email VARCHAR(255) UNIQUE NOT NULL,
     name VARCHAR(255) NOT NULL,
     avatar_url VARCHAR(512),
+    is_admin BOOLEAN DEFAULT FALSE,
     created_at TIMESTAMP DEFAULT NOW(),
     updated_at TIMESTAMP DEFAULT NOW()
 );
@@ -64,7 +74,6 @@ CREATE TABLE IF NOT EXISTS reviews (
     receipt_processing_time VARCHAR(50),
     plates_processing_time VARCHAR(50),
     visit_date DATE,
-    is_verified BOOLEAN DEFAULT FALSE,
     helpful_votes INTEGER DEFAULT 0,
     created_at TIMESTAMP DEFAULT NOW(),
     updated_at TIMESTAMP DEFAULT NOW(),

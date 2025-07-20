@@ -40,17 +40,8 @@ services:
     image: node:18-alpine
     container_name: dealership_api
     working_dir: /app
-    environment:
-      NODE_ENV: development
-      PORT: 3001
-      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/dealership_ratings
-      REDIS_URL: redis://redis:6379
-      JWT_SECRET: your-super-secret-jwt-key-change-in-production
-      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
-      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
-      GOOGLE_MAPS_API_KEY: ${GOOGLE_MAPS_API_KEY}
-      RECAPTCHA_SECRET_KEY: ${RECAPTCHA_SECRET_KEY}
-      FRONTEND_URL: http://localhost:3003
+    env_file:
+      - ./backend/.env
     ports:
       - "3002:3001"
     depends_on:

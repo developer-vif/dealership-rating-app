@@ -11,7 +11,7 @@ declare global {
   }
 }
 
-export const authenticateToken = (req: Request, res: Response, next: NextFunction) => {
+export const authenticateToken = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const authHeader = req.headers.authorization;
     const token = authHeader && authHeader.split(' ')[1]; // Bearer TOKEN
@@ -31,7 +31,7 @@ export const authenticateToken = (req: Request, res: Response, next: NextFunctio
       return;
     }
 
-    const decoded = verifyToken(token);
+    const decoded = await verifyToken(token);
     req.user = decoded;
     
     logger.info('User authenticated', { 
@@ -61,13 +61,13 @@ export const authenticateToken = (req: Request, res: Response, next: NextFunctio
   }
 };
 
-export const optionalAuth = (req: Request, res: Response, next: NextFunction) => {
+export const optionalAuth = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const authHeader = req.headers.authorization;
     const token = authHeader && authHeader.split(' ')[1];
 
     if (token) {
-      const decoded = verifyToken(token);
+      const decoded = await verifyToken(token);
       req.user = decoded;
       logger.info('Optional auth: User authenticated', { 
         userId: decoded.userId, 
@@ -82,5 +82,72 @@ export const optionalAuth = (req: Request, res: Response, next: NextFunction) =>
       error: error instanceof Error ? error.message : 'Unknown error' 
     });
     next();
+  }
+};
+
+export const requireAdmin = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    // First ensure user is authenticated
+    if (!req.user) {
+      res.status(401).json({
+        success: false,
+        error: {
+          code: 'AUTHENTICATION_REQUIRED',
+          message: 'Authentication required'
+        },
+        meta: {
+          requestId: req.headers['x-request-id'] || 'unknown',
+          timestamp: new Date().toISOString()
+        }
+      });
+      return;
+    }
+
+    // Check if user is admin
+    if (!req.user.isAdmin) {
+      logger.warn('Admin access denied', { 
+        userId: req.user.userId,
+        email: req.user.email,
+        ip: req.ip
+      });
+
+      res.status(403).json({
+        success: false,
+        error: {
+          code: 'ADMIN_REQUIRED',
+          message: 'Administrator privileges required'
+        },
+        meta: {
+          requestId: req.headers['x-request-id'] || 'unknown',
+          timestamp: new Date().toISOString()
+        }
+      });
+      return;
+    }
+
+    logger.info('Admin access granted', { 
+      userId: req.user.userId, 
+      email: req.user.email 
+    });
+    
+    next();
+  } catch (error) {
+    logger.error('Admin authorization failed', { 
+      error: error instanceof Error ? error.message : 'Unknown error',
+      ip: req.ip,
+      userAgent: req.get('User-Agent')
+    });
+
+    res.status(500).json({
+      success: false,
+      error: {
+        code: 'AUTHORIZATION_ERROR',
+        message: 'Authorization check failed'
+      },
+      meta: {
+        requestId: req.headers['x-request-id'] || 'unknown',
+        timestamp: new Date().toISOString()
+      }
+    });
   }
 };

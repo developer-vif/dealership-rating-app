@@ -8,6 +8,7 @@ import HomePage from './pages/HomePage';
 import DealershipsPage from './pages/DealershipsPage';
 import DealershipDetailPage from './pages/DealershipDetailPage';
 import ReviewFormPage from './pages/ReviewFormPage';
+import AdminPage from './pages/AdminPage';
 import TestRatingPage from './pages/test/TestRatingPage';
 import StarRatingTest from './pages/test/StarRatingTest';
 import SliderRatingTest from './pages/test/SliderRatingTest';
@@ -70,6 +71,7 @@ function App() {
           <Route path="/dealerships" element={<DealershipsPage />} />
           <Route path="/dealership/:placeId" element={<DealershipDetailPage />} />
           <Route path="/dealership/:placeId/review" element={<ReviewFormPage />} />
+          <Route path="/admin" element={<AdminPage />} />
           <Route path="/test/ratings" element={<TestRatingPage />} />
           <Route path="/test/rating-stars" element={<StarRatingTest />} />
           <Route path="/test/rating-slider" element={<SliderRatingTest />} />

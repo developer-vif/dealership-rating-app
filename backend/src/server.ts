@@ -13,6 +13,7 @@ import authRoutes from './routes/auth';
 import dealershipRoutes from './routes/dealerships';
 import reviewRoutes from './routes/reviews';
 import healthRoutes from './routes/health';
+import adminRoutes from './routes/admin';
 
 // Load environment variables
 dotenv.config();
@@ -45,17 +46,27 @@ app.use(cors({
     'http://localhost:3000'
   ],
   credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Request-ID'],
   exposedHeaders: ['X-Request-ID']
 }));
 
-// Rate limiting
+// Rate limiting for API endpoints
 const limiter = rateLimit({
   windowMs: parseInt(process.env['RATE_LIMIT_WINDOW_MS'] || '900000'), // 15 minutes
   max: parseInt(process.env['RATE_LIMIT_MAX_REQUESTS'] || '100'), // limit each IP to 100 requests per windowMs
   message: 'Too many requests from this IP, please try again later.'
 });
+
+// Stricter rate limiting for authentication endpoints
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 10, // Limit each IP to 10 authentication requests per window
+  message: 'Too many authentication attempts from this IP, please try again later.',
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
 app.use('/api/', limiter);
 
 // Body parsing middleware
@@ -69,9 +80,10 @@ app.use(requestLogger);
 
 // Routes
 app.use('/health', healthRoutes);
-app.use('/auth', authRoutes);
+app.use('/auth', authLimiter, authRoutes);
 app.use('/api/dealerships', dealershipRoutes);
 app.use('/api/reviews', reviewRoutes);
+app.use('/api/admin', limiter, adminRoutes);
 
 // Error handling
 app.use(notFoundHandler);

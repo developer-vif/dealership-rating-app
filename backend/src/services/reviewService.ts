@@ -26,7 +26,6 @@ export interface Review {
   receiptProcessingTime: string;
   platesProcessingTime: string;
   visitDate: string;
-  isVerified: boolean;
   helpfulVotes: number;
   unhelpfulVotes: number;
   tags: string[];
@@ -55,24 +54,16 @@ class ReviewService {
     try {
       const offset = (page - 1) * limit;
       
-      // Determine sort order
-      let orderBy = 'r.created_at DESC';
-      switch (sort) {
-        case 'oldest':
-          orderBy = 'r.created_at ASC';
-          break;
-        case 'rating_high':
-          orderBy = 'r.rating DESC, r.created_at DESC';
-          break;
-        case 'rating_low':
-          orderBy = 'r.rating ASC, r.created_at DESC';
-          break;
-        case 'helpful':
-          orderBy = 'r.helpful_votes DESC, r.created_at DESC';
-          break;
-        default:
-          orderBy = 'r.created_at DESC';
-      }
+      // Determine sort order using allowlist to prevent SQL injection
+      const validSortOptions: Record<string, string> = {
+        'newest': 'r.created_at DESC',
+        'oldest': 'r.created_at ASC', 
+        'rating_high': 'r.rating DESC, r.created_at DESC',
+        'rating_low': 'r.rating ASC, r.created_at DESC',
+        'helpful': 'r.helpful_votes DESC, r.created_at DESC'
+      };
+      
+      const orderBy = validSortOptions[sort] || validSortOptions['newest'];
 
       // Get total count
       const countQuery = `
@@ -84,7 +75,7 @@ class ReviewService {
       const countResult = await query(countQuery, [dealershipId]);
       const total = parseInt(countResult.rows[0].total);
 
-      // Get reviews with user information
+      // Get reviews with user information - construct query safely without template literals
       const reviewsQuery = `
         SELECT 
           r.id,
@@ -97,7 +88,6 @@ class ReviewService {
           r.receipt_processing_time,
           r.plates_processing_time,
           r.visit_date,
-          r.is_verified,
           r.helpful_votes,
           r.created_at,
           r.updated_at,
@@ -111,7 +101,7 @@ class ReviewService {
         INNER JOIN users u ON r.user_id = u.id
         INNER JOIN dealerships d ON r.dealership_id = d.id
         WHERE d.google_place_id = $1
-        ORDER BY ${orderBy}
+        ORDER BY ` + orderBy + `
         LIMIT $2 OFFSET $3
       `;
 
@@ -122,14 +112,13 @@ class ReviewService {
         id: row.id,
         userId: row.user_id,
         userName: row.user_name,
-        userAvatar: row.user_avatar || `https://via.placeholder.com/40x40?text=${row.user_name.charAt(0)}`,
+        userAvatar: row.user_avatar || `https://via.placeholder.com/40x40?text=${encodeURIComponent(row.user_name.charAt(0))}`,
         rating: row.rating,
         title: row.title,
         content: row.content,
         receiptProcessingTime: row.receipt_processing_time,
         platesProcessingTime: row.plates_processing_time,
         visitDate: row.visit_date,
-        isVerified: row.is_verified,
         helpfulVotes: row.helpful_votes,
         unhelpfulVotes: row.unhelpful_votes,
         tags: this.generateTags(row), // Generate tags based on processing times and rating
@@ -239,7 +228,6 @@ class ReviewService {
             r.receipt_processing_time,
             r.plates_processing_time,
             r.visit_date,
-            r.is_verified,
             r.helpful_votes,
             r.created_at,
             r.updated_at
@@ -255,14 +243,13 @@ class ReviewService {
           id: row.id,
           userId: row.user_id,
           userName: row.user_name,
-          userAvatar: row.user_avatar || `https://via.placeholder.com/40x40?text=${row.user_name.charAt(0)}`,
+          userAvatar: row.user_avatar || `https://via.placeholder.com/40x40?text=${encodeURIComponent(row.user_name.charAt(0))}`,
           rating: row.rating,
           title: row.title,
           content: row.content,
           receiptProcessingTime: row.receipt_processing_time,
           platesProcessingTime: row.plates_processing_time,
           visitDate: row.visit_date,
-          isVerified: row.is_verified,
           helpfulVotes: row.helpful_votes,
           unhelpfulVotes: 0,
           tags: this.generateTags(row),
@@ -344,7 +331,6 @@ class ReviewService {
             r.receipt_processing_time,
             r.plates_processing_time,
             r.visit_date,
-            r.is_verified,
             r.helpful_votes,
             r.created_at,
             r.updated_at
@@ -360,14 +346,13 @@ class ReviewService {
           id: row.id,
           userId: row.user_id,
           userName: row.user_name,
-          userAvatar: row.user_avatar || `https://via.placeholder.com/40x40?text=${row.user_name.charAt(0)}`,
+          userAvatar: row.user_avatar || `https://via.placeholder.com/40x40?text=${encodeURIComponent(row.user_name.charAt(0))}`,
           rating: row.rating,
           title: row.title,
           content: row.content,
           receiptProcessingTime: row.receipt_processing_time,
           platesProcessingTime: row.plates_processing_time,
           visitDate: row.visit_date,
-          isVerified: row.is_verified,
           helpfulVotes: row.helpful_votes,
           unhelpfulVotes: 0,
           tags: this.generateTags(row),
@@ -457,11 +442,6 @@ class ReviewService {
       tags.push('Quick Service');
     } else if (reviewData.receipt_processing_time === 'longer' || reviewData.plates_processing_time === 'longer') {
       tags.push('Slow Process');
-    }
-
-    // Add verification tag
-    if (reviewData.is_verified) {
-      tags.push('Verified Purchase');
     }
 
     // Add helpful tag if review has good votes

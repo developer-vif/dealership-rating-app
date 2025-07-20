@@ -15,7 +15,7 @@ const Footer: React.FC = () => {
     >
       <Container maxWidth="lg">
         <Typography variant="body2" align="center">
-          © 2024 DealerRate. Help car buyers make informed decisions.
+          © 2025 DealerRate. Help car and motorcycle buyers make informed decisions.
         </Typography>
       </Container>
     </Box>

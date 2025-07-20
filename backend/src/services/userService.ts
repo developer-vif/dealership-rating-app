@@ -7,6 +7,7 @@ export interface User {
   email: string;
   name: string;
   avatarUrl?: string;
+  isAdmin: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -23,7 +24,7 @@ class UserService {
   async getUserById(userId: string): Promise<User | null> {
     try {
       const selectQuery = `
-        SELECT id, google_id, email, name, avatar_url, created_at, updated_at
+        SELECT id, google_id, email, name, avatar_url, is_admin, created_at, updated_at
         FROM users
         WHERE id = $1
       `;
@@ -41,6 +42,7 @@ class UserService {
         email: row.email,
         name: row.name,
         avatarUrl: row.avatar_url,
+        isAdmin: row.is_admin,
         createdAt: row.created_at,
         updatedAt: row.updated_at,
       };
@@ -54,7 +56,7 @@ class UserService {
   async getUserByGoogleId(googleId: string): Promise<User | null> {
     try {
       const selectQuery = `
-        SELECT id, google_id, email, name, avatar_url, created_at, updated_at
+        SELECT id, google_id, email, name, avatar_url, is_admin, created_at, updated_at
         FROM users
         WHERE google_id = $1
       `;
@@ -72,6 +74,7 @@ class UserService {
         email: row.email,
         name: row.name,
         avatarUrl: row.avatar_url,
+        isAdmin: row.is_admin,
         createdAt: row.created_at,
         updatedAt: row.updated_at,
       };
@@ -85,7 +88,7 @@ class UserService {
   async getUserByEmail(email: string): Promise<User | null> {
     try {
       const selectQuery = `
-        SELECT id, google_id, email, name, avatar_url, created_at, updated_at
+        SELECT id, google_id, email, name, avatar_url, is_admin, created_at, updated_at
         FROM users
         WHERE email = $1
       `;
@@ -103,6 +106,7 @@ class UserService {
         email: row.email,
         name: row.name,
         avatarUrl: row.avatar_url,
+        isAdmin: row.is_admin,
         createdAt: row.created_at,
         updatedAt: row.updated_at,
       };
@@ -118,7 +122,7 @@ class UserService {
       const insertQuery = `
         INSERT INTO users (google_id, email, name, avatar_url)
         VALUES ($1, $2, $3, $4)
-        RETURNING id, google_id, email, name, avatar_url, created_at, updated_at
+        RETURNING id, google_id, email, name, avatar_url, is_admin, created_at, updated_at
       `;
       
       const values = [
@@ -137,6 +141,7 @@ class UserService {
         email: row.email,
         name: row.name,
         avatarUrl: row.avatar_url,
+        isAdmin: row.is_admin,
         createdAt: row.created_at,
         updatedAt: row.updated_at,
       };
@@ -176,7 +181,7 @@ class UserService {
         UPDATE users 
         SET ${updateFields.join(', ')}
         WHERE id = $${paramCount}
-        RETURNING id, google_id, email, name, avatar_url, created_at, updated_at
+        RETURNING id, google_id, email, name, avatar_url, is_admin, created_at, updated_at
       `;
 
       const result = await query(updateQuery, values);
@@ -192,6 +197,7 @@ class UserService {
         email: row.email,
         name: row.name,
         avatarUrl: row.avatar_url,
+        isAdmin: row.is_admin,
         createdAt: row.created_at,
         updatedAt: row.updated_at,
       };

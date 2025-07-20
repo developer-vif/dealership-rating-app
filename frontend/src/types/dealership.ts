@@ -63,7 +63,6 @@ export interface DealershipReview {
   receiptProcessingTime: string;
   platesProcessingTime: string;
   visitDate: string;
-  isVerified: boolean;
   helpfulVotes: number;
   unhelpfulVotes: number;
   tags: string[];

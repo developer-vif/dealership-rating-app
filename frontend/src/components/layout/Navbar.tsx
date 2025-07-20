@@ -17,7 +17,7 @@ import {
   IconButton
 } from '@mui/material';
 import { Link as RouterLink } from 'react-router-dom';
-import { Home, Login, Logout, AccountCircle, Close } from '@mui/icons-material';
+import { Home, Login, Logout, AccountCircle, Close, AdminPanelSettings } from '@mui/icons-material';
 import { useAuth } from '../../contexts/AuthContext';
 import GoogleSignInButton from '../auth/GoogleSignInButton';
 import LogoutConfirmationDialog from '../auth/LogoutConfirmationDialog';
@@ -175,6 +175,13 @@ const Navbar: React.FC = () => {
                       </Box>
                     </MenuItem>
                     <Divider />
+                    {user?.isAdmin && (
+                      <MenuItem component={RouterLink} to="/admin" onClick={handleUserMenuClose}>
+                        <AdminPanelSettings fontSize="small" sx={{ mr: 1 }} />
+                        Admin Dashboard
+                      </MenuItem>
+                    )}
+                    {user?.isAdmin && <Divider />}
                     <MenuItem onClick={handleLogout}>
                       <Logout fontSize="small" sx={{ mr: 1 }} />
                       Logout

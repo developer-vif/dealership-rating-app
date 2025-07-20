@@ -6,6 +6,7 @@ export interface User {
   email: string;
   name: string;
   picture?: string;
+  isAdmin?: boolean;
   verified?: boolean;
 }
 
@@ -25,6 +26,14 @@ export const useAuth = (): AuthContextType => {
   const context = useContext(AuthContext);
   if (!context) {
     throw new Error('useAuth must be used within an AuthProvider');
+  }
+  return context;
+};
+
+export const useAuthContext = (): AuthContextType => {
+  const context = useContext(AuthContext);
+  if (!context) {
+    throw new Error('useAuthContext must be used within an AuthProvider');
   }
   return context;
 };
@@ -72,12 +81,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           
           if (response.data.success) {
             const userData = response.data.data.user;
-            console.log('🔐 Auth: User loaded from stored token:', {
-              userId: userData.id,
-              userEmail: userData.email,
-              userName: userData.name,
-              userIdType: typeof userData.id
-            });
             setUser(userData);
           } else {
             // Token is invalid, remove it
@@ -111,13 +114,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         setToken(jwtToken);
         setUser(userData);
         localStorage.setItem('auth_token', jwtToken);
-        
-        console.log('🔐 Auth: User logged in successfully:', {
-          userId: userData.id,
-          userEmail: userData.email,
-          userName: userData.name,
-          userIdType: typeof userData.id
-        });
       } else {
         throw new Error('Authentication failed');
       }
@@ -134,12 +130,15 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     setToken(null);
     localStorage.removeItem('auth_token');
     
-    // Optionally call backend logout endpoint
+    // Call backend logout endpoint to blacklist token
     if (token) {
-      axios.delete(`${API_BASE_URL}/auth/logout`).catch(console.error);
+      axios.delete(`${API_BASE_URL}/auth/logout`).catch((error) => {
+        // Log to console only in development
+        if (process.env.NODE_ENV === 'development') {
+          console.error('Logout request failed:', error);
+        }
+      });
     }
-    
-    console.log('User logged out');
   };
 
   const refreshToken = async (): Promise<void> => {
@@ -158,8 +157,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         setToken(newToken);
         setUser(userData);
         localStorage.setItem('auth_token', newToken);
-        
-        console.log('Token refreshed successfully');
       } else {
         throw new Error('Token refresh failed');
       }

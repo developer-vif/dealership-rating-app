@@ -34,7 +34,6 @@ CREATE TABLE IF NOT EXISTS reviews (
     receipt_processing_time VARCHAR(50),
     plates_processing_time VARCHAR(50),
     visit_date DATE,
-    is_verified BOOLEAN DEFAULT FALSE,
     helpful_votes INTEGER DEFAULT 0,
     created_at TIMESTAMP DEFAULT NOW(),
     updated_at TIMESTAMP DEFAULT NOW(),
@@ -74,7 +73,7 @@ VALUES
 ON CONFLICT (google_id) DO NOTHING;
 
 -- Insert sample reviews for testing
-INSERT INTO reviews (user_id, dealership_id, rating, title, content, receipt_processing_time, plates_processing_time, visit_date, is_verified, helpful_votes) 
+INSERT INTO reviews (user_id, dealership_id, rating, title, content, receipt_processing_time, plates_processing_time, visit_date, helpful_votes) 
 VALUES 
     (
         '550e8400-e29b-41d4-a716-446655440001', 
@@ -85,7 +84,6 @@ VALUES
         'same-day',
         '1-week',
         '2024-01-15',
-        true,
         12
     ),
     (
@@ -97,7 +95,6 @@ VALUES
         'same-day',
         'same-day',
         '2024-01-10',
-        false,
         8
     ),
     (
@@ -109,7 +106,6 @@ VALUES
         '1-week',
         '2-weeks',
         '2024-01-05',
-        true,
         5
     )
 ON CONFLICT (user_id, dealership_id) DO NOTHING;

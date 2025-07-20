@@ -1,4 +1,4 @@
-import { Client, TextSearchRequestParams } from '@googlemaps/google-maps-services-js';
+import { Client, TextSearchRequest } from '@googlemaps/google-maps-services-js';
 import axios from 'axios';
 import { logger } from '../utils/logger';
 import { query } from '../utils/database';
@@ -6,7 +6,7 @@ import { addDistanceToLocation, Coordinates } from '../utils/distanceUtils';
 
 // --- Configuration and Constants ---
 
-const googleMapsApiKey = process.env.GOOGLE_MAPS_API_KEY;
+const googleMapsApiKey = process.env['GOOGLE_MAPS_API_KEY'];
 
 if (!googleMapsApiKey) {
   logger.error('Google Maps API key not configured');
@@ -112,7 +112,7 @@ export interface DealershipSearchResult {
 class GooglePlacesService {
   async searchDealerships(params: SearchDealershipsParams): Promise<DealershipSearchResult> {
     try {
-      const searchParams: Partial<TextSearchRequestParams> = {};
+      const searchParams: any = {};
       let searchCenter: { latitude: number; longitude: number } | undefined;
 
       // If a pageToken is provided, use it to fetch the next page.
@@ -126,7 +126,10 @@ class GooglePlacesService {
         } else if (params.location) {
           // Re-geocode the location for pageToken requests to get coordinates
           const geocodeResponse = await client.geocode({
-            params: { address: params.location },
+            params: { 
+              address: params.location,
+              key: googleMapsApiKey
+            },
           });
           if (geocodeResponse.data.results.length > 0) {
             const location = geocodeResponse.data.results[0].geometry.location;
@@ -173,7 +176,10 @@ class GooglePlacesService {
         } else if (params.location) {
           // Geocode the location string first
           const geocodeResponse = await client.geocode({
-            params: { address: params.location },
+            params: { 
+              address: params.location,
+              key: googleMapsApiKey
+            },
           });
 
           if (geocodeResponse.data.results.length > 0) {
@@ -271,6 +277,7 @@ class GooglePlacesService {
       const response = await client.placeDetails({
         params: {
           place_id: placeId,
+          key: googleMapsApiKey,
           fields: [
             'place_id',
             'name',
@@ -307,6 +314,7 @@ class GooglePlacesService {
         params: {
           location: `${latitude},${longitude}`,
           radius: radius * 1000, // Convert km to meters
+          key: googleMapsApiKey,
           type: 'car_dealer',
         },
       });

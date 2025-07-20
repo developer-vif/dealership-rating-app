@@ -19,7 +19,9 @@
   "jest": {
     "preset": "ts-jest",
     "testEnvironment": "node",
-    "testMatch": ["**/src/**/*.test.ts"]
+    "testMatch": [
+      "**/src/**/*.test.ts"
+    ]
   },
   "dependencies": {
     "@googlemaps/google-maps-services-js": "^3.4.2",
@@ -38,7 +40,9 @@
     "jsonwebtoken": "^9.0.2",
     "pg": "^8.11.3",
     "redis": "^4.6.10",
-    "winston": "^3.11.0"
+    "uuid": "^9.0.1",
+    "winston": "^3.11.0",
+    "zod": "^4.0.5"
   },
   "devDependencies": {
     "@types/bcryptjs": "^2.4.6",
@@ -50,6 +54,7 @@
     "@types/node": "^20.9.0",
     "@types/pg": "^8.10.7",
     "@types/supertest": "^2.0.16",
+    "@types/uuid": "^9.0.7",
     "@typescript-eslint/eslint-plugin": "^6.12.0",
     "@typescript-eslint/parser": "^6.12.0",
     "eslint": "^8.54.0",

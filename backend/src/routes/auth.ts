@@ -1,7 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { logger } from '../utils/logger';
 import { verifyGoogleToken, getGoogleAuthUrl } from '../utils/googleAuth';
-import { generateToken, refreshToken as refreshJwtToken, verifyToken } from '../utils/jwt';
+import { generateToken, refreshToken as refreshJwtToken, verifyToken, blacklistToken } from '../utils/jwt';
 import { authenticateToken } from '../middleware/auth';
 import userService from '../services/userService';
 
@@ -69,6 +69,7 @@ router.post('/google', async (req: Request, res: Response) => {
       email: dbUser.email,
       name: dbUser.name,
       picture: dbUser.avatarUrl || undefined,
+      isAdmin: dbUser.isAdmin,
     });
 
     logger.info('User authenticated via Google OAuth', { 
@@ -86,6 +87,7 @@ router.post('/google', async (req: Request, res: Response) => {
           email: dbUser.email,
           name: dbUser.name,
           picture: dbUser.avatarUrl,
+          isAdmin: dbUser.isAdmin,
           verified: googleUser.verified_email
         }
       },
@@ -122,8 +124,8 @@ router.post('/refresh', async (req: Request, res: Response) => {
       });
     }
 
-    const newToken = refreshJwtToken(token);
-    const decoded = verifyToken(newToken);
+    const newToken = await refreshJwtToken(token);
+    const decoded = await verifyToken(newToken);
     
     logger.info('JWT token refreshed', { userId: decoded.userId });
     
@@ -135,7 +137,8 @@ router.post('/refresh', async (req: Request, res: Response) => {
           id: decoded.userId,
           email: decoded.email,
           name: decoded.name,
-          picture: decoded.picture
+          picture: decoded.picture,
+          isAdmin: decoded.isAdmin
         }
       },
       meta: {
@@ -157,12 +160,17 @@ router.post('/refresh', async (req: Request, res: Response) => {
   }
 });
 
-router.delete('/logout', async (req: Request, res: Response) => {
+router.delete('/logout', authenticateToken, async (req: Request, res: Response) => {
   try {
-    // For JWT-based auth, logout is handled client-side by removing the token
-    // In a production environment, you might want to blacklist tokens
+    // Blacklist the current token to prevent further use
+    const authHeader = req.headers.authorization;
+    const token = authHeader && authHeader.split(' ')[1];
     
-    logger.info('Logout request received', { 
+    if (token) {
+      await blacklistToken(token);
+    }
+    
+    logger.info('User logged out successfully', { 
       userId: req.user?.userId || 'unknown',
       ip: req.ip 
     });
@@ -171,7 +179,7 @@ router.delete('/logout', async (req: Request, res: Response) => {
       success: true,
       data: { 
         message: 'Logged out successfully',
-        note: 'Please remove the token from client storage'
+        note: 'Token has been invalidated'
       },
       meta: {
         requestId: req.headers['x-request-id'] || 'unknown',
@@ -213,7 +221,8 @@ router.get('/me', authenticateToken, async (req: Request, res: Response) => {
           id: req.user.userId,
           email: req.user.email,
           name: req.user.name,
-          picture: req.user.picture
+          picture: req.user.picture,
+          isAdmin: req.user.isAdmin
         }
       },
       meta: {
