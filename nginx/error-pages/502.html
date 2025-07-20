@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Service Temporarily Unavailable - ORCR Agad!</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Roboto', Arial, sans-serif;
+            background: linear-gradient(135deg, #1e3a8a 0%, #dc2626 85%, #eab308 100%);
+            color: white;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+            text-align: center;
+        }
+
+        .error-container {
+            max-width: 600px;
+            width: 100%;
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 16px;
+            padding: 40px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .error-code {
+            font-size: 6rem;
+            font-weight: bold;
+            margin-bottom: 20px;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+            color: #eab308;
+        }
+
+        .error-title {
+            font-size: 2rem;
+            font-weight: 600;
+            margin-bottom: 16px;
+            color: #ffffff;
+        }
+
+        .error-message {
+            font-size: 1.1rem;
+            line-height: 1.6;
+            margin-bottom: 24px;
+            opacity: 0.9;
+        }
+
+        .error-details {
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 30px;
+            text-align: left;
+        }
+
+        .error-details h3 {
+            color: #eab308;
+            margin-bottom: 12px;
+            font-size: 1.1rem;
+        }
+
+        .error-details ul {
+            list-style: none;
+            padding-left: 0;
+        }
+
+        .error-details li {
+            margin-bottom: 8px;
+            position: relative;
+            padding-left: 20px;
+        }
+
+        .error-details li:before {
+            content: "•";
+            color: #eab308;
+            position: absolute;
+            left: 0;
+            font-weight: bold;
+        }
+
+        .action-buttons {
+            display: flex;
+            gap: 16px;
+            justify-content: center;
+            flex-wrap: wrap;
+            margin-top: 30px;
+        }
+
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 500;
+            text-decoration: none;
+            display: inline-block;
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+
+        .btn-primary {
+            background: linear-gradient(45deg, #1e3a8a 30%, #3b82f6 90%);
+            color: white;
+            box-shadow: 0 2px 8px rgba(234, 179, 8, 0.1);
+        }
+
+        .btn-primary:hover {
+            background: linear-gradient(45deg, #1e40af 30%, #2563eb 90%);
+            box-shadow: 0 4px 12px rgba(234, 179, 8, 0.2);
+            transform: translateY(-2px);
+        }
+
+        .btn-secondary {
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+        }
+
+        .btn-secondary:hover {
+            background: rgba(255, 255, 255, 0.2);
+            transform: translateY(-2px);
+        }
+
+        .logo {
+            font-size: 1.5rem;
+            font-weight: bold;
+            margin-bottom: 30px;
+            color: #eab308;
+        }
+
+        .footer {
+            margin-top: 40px;
+            font-size: 0.9rem;
+            opacity: 0.8;
+        }
+
+        .status-indicator {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            background: #dc2626;
+            border-radius: 50%;
+            margin-right: 8px;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+
+        .refresh-timer {
+            font-size: 0.9rem;
+            margin-top: 20px;
+            opacity: 0.8;
+        }
+
+        @media (max-width: 768px) {
+            .error-code {
+                font-size: 4rem;
+            }
+            
+            .error-title {
+                font-size: 1.5rem;
+            }
+            
+            .error-container {
+                padding: 30px 20px;
+            }
+            
+            .action-buttons {
+                flex-direction: column;
+                align-items: center;
+            }
+            
+            .btn {
+                width: 100%;
+                max-width: 250px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="error-container">
+        <div class="logo">ORCR Agad!</div>
+        
+        <div class="error-code">502</div>
+        
+        <h1 class="error-title">
+            <span class="status-indicator"></span>
+            Service Temporarily Unavailable
+        </h1>
+        
+        <p class="error-message">
+            Pasensya na! Ang aming sistema ay temporarily hindi available. 
+            Ito ay nangyayari kapag ang backend services ay nag-restart o may maintenance.
+        </p>
+
+        <div class="error-details">
+            <h3>Ano ang nangyayari:</h3>
+            <ul>
+                <li>Ang backend server ay hindi ma-reach ng nginx</li>
+                <li>Possible na nag-restart ang application containers</li>
+                <li>May ongoing maintenance sa sistema</li>
+                <li>Network connectivity issues sa internal services</li>
+            </ul>
+        </div>
+
+        <div class="error-details">
+            <h3>Ano ang pwedeng gawin:</h3>
+            <ul>
+                <li>I-refresh ang page pagkatapos ng ilang segundo</li>
+                <li>I-check ang inyong internet connection</li>
+                <li>Maghintay ng ilang minuto at subukan ulit</li>
+                <li>Kontakin ang support kung ang problema ay tumatagal</li>
+            </ul>
+        </div>
+
+        <div class="action-buttons">
+            <button class="btn btn-primary" onclick="window.location.reload()">
+                🔄 Refresh Page
+            </button>
+            <a href="/" class="btn btn-secondary">
+                🏠 Back to Home
+            </a>
+        </div>
+
+        <div class="refresh-timer">
+            <span id="timer">Automatically refreshing in <span id="countdown">30</span> seconds...</span>
+        </div>
+
+        <div class="footer">
+            ORCR Agad! - Car Dealership Rating System<br>
+            Error Code: 502 Bad Gateway | Timestamp: <span id="timestamp"></span>
+        </div>
+    </div>
+
+    <script>
+        // Set timestamp
+        document.getElementById('timestamp').textContent = new Date().toLocaleString('en-PH', {
+            timeZone: 'Asia/Manila',
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit'
+        });
+
+        // Auto-refresh countdown
+        let countdown = 30;
+        const countdownElement = document.getElementById('countdown');
+        const timerElement = document.getElementById('timer');
+        
+        const timer = setInterval(() => {
+            countdown--;
+            countdownElement.textContent = countdown;
+            
+            if (countdown <= 0) {
+                clearInterval(timer);
+                timerElement.textContent = 'Refreshing now...';
+                window.location.reload();
+            }
+        }, 1000);
+
+        // Manual refresh button enhanced feedback
+        document.querySelector('.btn-primary').addEventListener('click', (e) => {
+            e.target.innerHTML = '⏳ Refreshing...';
+            e.target.disabled = true;
+        });
+    </script>
+</body>
+</html>

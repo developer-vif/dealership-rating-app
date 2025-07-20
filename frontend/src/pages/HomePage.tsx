@@ -148,7 +148,7 @@ const HomePage: React.FC = () => {
       {/* Hero Section */}
       <Box
         sx={{
-          background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+          background: 'linear-gradient(135deg, #1e3a8a 0%, #dc2626 85%, #eab308 100%)', // Added yellow accent at the end
           color: 'white',
           py: 8,
           textAlign: 'center'
@@ -274,12 +274,12 @@ const HomePage: React.FC = () => {
                     )}
                     
                     <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mt: 'auto' }}>
-                      {dealership.brands.slice(0, 2).map((brand) => (
+                      {dealership.brands.slice(0, 2).map((brand, index) => (
                         <Chip
                           key={brand}
                           label={brand}
                           size="small"
-                          color="primary"
+                          color={index === 0 ? "secondary" : "primary"} // First brand gets yellow accent
                           variant="outlined"
                         />
                       ))}
@@ -287,7 +287,7 @@ const HomePage: React.FC = () => {
                         <Chip
                           label={`+${dealership.brands.length - 2} more`}
                           size="small"
-                          color="primary"
+                          color="secondary"
                           variant="outlined"
                         />
                       )}

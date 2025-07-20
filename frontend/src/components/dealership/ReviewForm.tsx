@@ -13,6 +13,7 @@ import {
   Alert,
   AlertTitle,
   Avatar,
+  Link,
 } from '@mui/material';
 import { Login as LoginIcon, Delete } from '@mui/icons-material';
 import { useGoogleReCaptcha } from 'react-google-recaptcha-v3';
@@ -21,6 +22,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import GoogleSignInButton from '../auth/GoogleSignInButton';
 import reviewService from '../../services/reviewService';
 import ConfirmationDialog from '../dialogs/ConfirmationDialog';
+import TermsOfServiceDialog from '../dialogs/TermsOfServiceDialog';
 import { 
   generateAnonymousUsername, 
   generateAnonymousInitials, 
@@ -136,6 +138,7 @@ const ReviewForm: React.FC<ReviewFormProps> = ({
   const [duplicateReviewError, setDuplicateReviewError] = useState(false);
   const [showUpdateConfirmation, setShowUpdateConfirmation] = useState(false);
   const [showDeleteConfirmation, setShowDeleteConfirmation] = useState(false);
+  const [showTermsDialog, setShowTermsDialog] = useState(false);
 
   // Check if form has changes (for edit mode)
   const hasFormChanges = editMode && originalFormData ? 
@@ -460,7 +463,26 @@ const ReviewForm: React.FC<ReviewFormProps> = ({
           <Divider sx={{ my: 3 }} />
           
           <Typography variant="body2" color="text.secondary">
-            By signing in, you agree to our Terms of Service and Review Guidelines.
+            By signing in, you agree to our{' '}
+            <Link
+              component="button"
+              onClick={(e) => {
+                e.preventDefault();
+                setShowTermsDialog(true);
+              }}
+              color="primary"
+              sx={{ 
+                textDecoration: 'underline',
+                background: 'none',
+                border: 'none',
+                padding: 0,
+                font: 'inherit',
+                cursor: 'pointer'
+              }}
+            >
+              Terms of Service
+            </Link>
+            {' '}and Review Guidelines.
           </Typography>
         </Paper>
       </Box>
@@ -725,7 +747,26 @@ const ReviewForm: React.FC<ReviewFormProps> = ({
           }
           label={
             <Typography variant="body2">
-              I agree to the Terms of Service and Review Guidelines *
+              I agree to the{' '}
+              <Link
+                component="button"
+                onClick={(e) => {
+                  e.preventDefault();
+                  setShowTermsDialog(true);
+                }}
+                color="primary"
+                sx={{ 
+                  textDecoration: 'underline',
+                  background: 'none',
+                  border: 'none',
+                  padding: 0,
+                  font: 'inherit',
+                  cursor: 'pointer'
+                }}
+              >
+                Terms of Service
+              </Link>
+              {' '}and Review Guidelines *
             </Typography>
           }
         />
@@ -799,6 +840,12 @@ const ReviewForm: React.FC<ReviewFormProps> = ({
         severity="warning"
         icon="delete"
         itemName={initialData?.title || 'Review'}
+      />
+
+      {/* Terms of Service Dialog */}
+      <TermsOfServiceDialog
+        open={showTermsDialog}
+        onClose={() => setShowTermsDialog(false)}
       />
     </Box>
   );
