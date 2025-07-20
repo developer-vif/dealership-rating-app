@@ -296,13 +296,14 @@ GOOGLE_CLIENT_ID=your-google-client-id
 GOOGLE_CLIENT_SECRET=your-google-client-secret
 GOOGLE_MAPS_API_KEY=your-google-maps-api-key
 
-# Database Configuration (for PostgreSQL container - admin user)
-POSTGRES_DB=dealership_ratings
-POSTGRES_USER=postgres
-POSTGRES_PASSWORD=your-secure-postgres-password
-
-# Application Database User (dedicated user with limited privileges)
-DATABASE_URL=postgresql://dealership_app:your-secure-app-password@postgres:5432/dealership_ratings
+# Database Configuration (unified for container and application)
+DB_NAME=dealership_ratings
+DB_ADMIN_USER=postgres
+DB_ADMIN_PASSWORD=your-secure-postgres-password
+DB_USER=dealership_app
+DB_PASSWORD=your-secure-app-password
+DB_HOST=postgres
+DB_PORT=5432
 
 # Redis
 REDIS_URL=redis://redis:6379
