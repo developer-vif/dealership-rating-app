@@ -60,7 +60,7 @@ services:
     container_name: dealership_web
     working_dir: /app
     env_file:
-      - ./frontend/.env.production
+      - ./.env
     environment:
       NODE_ENV: production
       REACT_APP_API_URL: https://orcr-agad.com
