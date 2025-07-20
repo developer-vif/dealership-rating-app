@@ -240,6 +240,8 @@ npm test              # Interactive test runner
 
 ### Data Security
 - **Raw SQL queries** with parameterized statements (no ORM vulnerabilities)
+- **Dedicated database user** with limited privileges (not superuser)
+- **Automated user creation** during database initialization
 - **CORS** properly configured for frontend domain
 - **Helmet** security headers
 - **UUID** primary keys to prevent enumeration attacks
@@ -294,11 +296,13 @@ GOOGLE_CLIENT_ID=your-google-client-id
 GOOGLE_CLIENT_SECRET=your-google-client-secret
 GOOGLE_MAPS_API_KEY=your-google-maps-api-key
 
-# Database Configuration
+# Database Configuration (for PostgreSQL container - admin user)
 POSTGRES_DB=dealership_ratings
 POSTGRES_USER=postgres
 POSTGRES_PASSWORD=your-secure-postgres-password
-DATABASE_URL=postgresql://postgres:your-secure-postgres-password@postgres:5432/dealership_ratings
+
+# Application Database User (dedicated user with limited privileges)
+DATABASE_URL=postgresql://dealership_app:your-secure-app-password@postgres:5432/dealership_ratings
 
 # Redis
 REDIS_URL=redis://redis:6379

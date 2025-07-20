@@ -4,6 +4,32 @@
 -- Enable UUID extension
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
+-- Create dedicated application user with limited privileges
+DO $$
+BEGIN
+    -- Create user if it doesn't exist
+    IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'dealership_app') THEN
+        CREATE USER dealership_app WITH PASSWORD 'dealership_app_secure_2024!';
+        RAISE NOTICE 'Created dealership_app user';
+    ELSE
+        RAISE NOTICE 'dealership_app user already exists';
+    END IF;
+    
+    -- Grant necessary permissions
+    GRANT CONNECT ON DATABASE dealership_ratings TO dealership_app;
+    GRANT USAGE ON SCHEMA public TO dealership_app;
+    
+    -- Grant table permissions (these will apply to existing and future tables)
+    GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO dealership_app;
+    GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO dealership_app;
+    
+    -- Grant default privileges for future tables
+    ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO dealership_app;
+    ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT USAGE, SELECT ON SEQUENCES TO dealership_app;
+    
+    RAISE NOTICE 'Granted permissions to dealership_app user';
+END $$;
+
 -- Check if we need to migrate existing schema
 DO $$
 BEGIN
