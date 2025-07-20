@@ -63,6 +63,8 @@ const GoogleSignInButton: React.FC<GoogleSignInButtonProps> = ({
       callback: handleCredentialResponse,
       auto_select: false,
       cancel_on_tap_outside: true,
+      use_fedcm_for_prompt: false,
+      itp_support: true,
     });
 
     // Render the button

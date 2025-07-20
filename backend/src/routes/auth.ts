@@ -40,9 +40,17 @@ router.get('/google', async (_req: Request, res: Response) => {
 // POST /auth/google - Verify Google token and authenticate user
 router.post('/google', async (req: Request, res: Response) => {
   try {
+    logger.info('Google OAuth request received', { 
+      hasToken: !!req.body.token,
+      bodyKeys: Object.keys(req.body),
+      origin: req.headers.origin,
+      referer: req.headers.referer 
+    });
+
     const { token } = req.body;
     
     if (!token) {
+      logger.warn('Missing Google token in OAuth request', { body: req.body });
       return res.status(400).json({
         success: false,
         error: {
@@ -53,7 +61,9 @@ router.post('/google', async (req: Request, res: Response) => {
     }
 
     // Verify Google token
+    logger.info('Attempting to verify Google token', { tokenLength: token.length });
     const googleUser = await verifyGoogleToken(token);
+    logger.info('Google token verified successfully', { googleId: googleUser.id, email: googleUser.email });
     
     // Get or create user in database
     const dbUser = await userService.getOrCreateUser({
@@ -98,13 +108,16 @@ router.post('/google', async (req: Request, res: Response) => {
     });
   } catch (error) {
     logger.error('Google OAuth error', { 
-      error: error instanceof Error ? error.message : 'Unknown error' 
+      error: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined,
+      tokenReceived: !!req.body.token
     });
     res.status(400).json({
       success: false,
       error: {
         code: 'AUTHENTICATION_FAILED',
-        message: 'Google authentication failed'
+        message: 'Google authentication failed',
+        details: error instanceof Error ? error.message : 'Unknown error'
       }
     });
   }
