@@ -166,7 +166,8 @@ const AdminPage: React.FC = () => {
   });
 
   const apiRequest = async (endpoint: string, options: RequestInit = {}) => {
-    const response = await fetch(`http://localhost:3002/api/admin${endpoint}`, {
+    const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:3001';
+    const response = await fetch(`${apiUrl}/api/admin${endpoint}`, {
       ...options,
       headers: {
         'Content-Type': 'application/json',
