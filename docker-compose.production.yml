@@ -52,22 +52,21 @@ services:
         condition: service_healthy
     volumes:
       - ./backend:/app
-    command: sh -c "npm install --production && npm run build && npm start"
+    command: sh -c "npm install && npm run build && npm start"
 
   # Frontend with production build and obfuscation
   frontend:
     image: node:18-alpine
     container_name: dealership_web
     working_dir: /app
+    env_file:
+      - ./frontend/.env.production
     environment:
       NODE_ENV: production
       REACT_APP_API_URL: https://orcr-agad.com
       REACT_APP_GOOGLE_MAPS_API_KEY: ${GOOGLE_MAPS_API_KEY}
       REACT_APP_GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
       REACT_APP_RECAPTCHA_SITE_KEY: ${REACT_APP_RECAPTCHA_SITE_KEY}
-      # Security: Disable source maps
-      GENERATE_SOURCEMAP: false
-      INLINE_RUNTIME_CHUNK: false
     expose:
       - "3000"
     depends_on:

@@ -319,6 +319,10 @@ FRONTEND_URL=http://localhost:3003
 # Rate Limiting
 RATE_LIMIT_WINDOW_MS=900000
 RATE_LIMIT_MAX_REQUESTS=100
+
+# Frontend Build Configuration
+GENERATE_SOURCEMAP=true          # Enable in development, disable in production
+INLINE_RUNTIME_CHUNK=true        # Enable in development, disable in production
 ```
 
 ## Deployment Notes
