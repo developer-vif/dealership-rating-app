@@ -63,6 +63,7 @@ services:
       REACT_APP_GOOGLE_MAPS_API_KEY: ${GOOGLE_MAPS_API_KEY}
       REACT_APP_GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
       REACT_APP_RECAPTCHA_SITE_KEY: ${REACT_APP_RECAPTCHA_SITE_KEY}
+      FAST_REFRESH: false
       WDS_SOCKET_PORT: 0
       WDS_SOCKET_HOST: orcr-agad.com
       WDS_SOCKET_PROTOCOL: wss
@@ -72,7 +73,7 @@ services:
       - backend
     volumes:
       - ./frontend:/app
-    command: sh -c "npm install && npm start"
+    command: sh -c "npm install && FAST_REFRESH=false npm start"
 
   # Nginx reverse proxy
   nginx:
