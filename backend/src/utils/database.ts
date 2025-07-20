@@ -8,7 +8,7 @@ const dbConfig = {
   database: process.env['DB_NAME'] || 'dealership_ratings',
   user: process.env['DB_USER'] || 'postgres',
   password: process.env['DB_PASSWORD'] || 'postgres',
-  ssl: process.env['NODE_ENV'] === 'production' ? { rejectUnauthorized: false } : false,
+  ssl: process.env['DB_SSL'] === 'true' ? { rejectUnauthorized: false } : false,
   max: 20, // maximum number of clients in the pool
   idleTimeoutMillis: 30000, // how long a client is allowed to remain idle before being closed
   connectionTimeoutMillis: 2000, // how long to try to connect before timing out
