@@ -40,10 +40,13 @@ app.use(helmet({
 
 app.use(cors({
   origin: [
-    process.env['FRONTEND_URL'] || 'http://localhost:3003',
+    process.env['FRONTEND_URL'] || 'http://localhost',
     'https://accounts.google.com',
-    'http://localhost:3003',
-    'http://localhost:3000'
+    'https://orcr-agad.com',
+    'https://www.orcr-agad.com',
+    'http://localhost',
+    'http://localhost:3000',
+    'http://localhost:3003'
   ],
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],

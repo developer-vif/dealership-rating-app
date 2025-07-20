@@ -30,6 +30,7 @@ This is a dealership rating application that allows users to rate and review car
 
 ### Infrastructure
 - **Docker/Docker Compose** for local development
+- **Nginx Alpine** as reverse proxy and load balancer
 - **PostgreSQL 15 Alpine** container
 - **Redis 7 Alpine** container
 - **Node 18 Alpine** containers for services
@@ -59,8 +60,7 @@ colima start
 docker-compose up -d
 
 # Access application
-# Frontend: http://localhost:3003
-# Backend API: http://localhost:3002
+# Application: http://localhost (via nginx)
 # Database: localhost:5433
 # Redis: localhost:6380
 ```
@@ -105,6 +105,7 @@ docker exec -it dealership_web npm run type-check
 ## Architecture Notes
 
 - **Monolithic Architecture**: Single codebase with frontend and backend in same repository
+- **Reverse Proxy**: Nginx serves as the entry point, routing traffic to frontend and backend
 - **API-First**: RESTful APIs with consistent response format
 - **Database**: PostgreSQL with raw SQL for direct control and performance
 - **Authentication**: Google OAuth2 flow with JWT token management
@@ -326,8 +327,9 @@ RATE_LIMIT_MAX_REQUESTS=100
 - **Health checks** ensure services are ready before starting dependents
 
 ### Service Ports
-- **Frontend**: 3003 (mapped to container port 3000)
-- **Backend**: 3002 (mapped to container port 3001)
+- **Nginx**: 80 (main application entry point)
+- **Frontend**: 3000 (internal, proxied through nginx)
+- **Backend**: 3001 (internal, proxied through nginx)
 - **Database**: 5433 (mapped to container port 5432)
 - **Redis**: 6380 (mapped to container port 6379)
 
@@ -340,7 +342,7 @@ RATE_LIMIT_MAX_REQUESTS=100
 
 ### Common Issues
 1. **Docker not running**: Ensure Docker daemon is active (use `colima start` on macOS)
-2. **Port conflicts**: Check if ports 3002, 3003, 5433, 6380 are available
+2. **Port conflicts**: Check if ports 80, 5433, 6380 are available
 3. **Environment variables**: Verify .env file has all required variables
 4. **Google API quotas**: Check Google Cloud Console for API usage limits
 5. **Database connection**: Verify PostgreSQL container is healthy
