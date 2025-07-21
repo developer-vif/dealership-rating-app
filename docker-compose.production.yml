@@ -72,6 +72,10 @@ services:
       - ./.env
     environment:
       NODE_ENV: production
+      REACT_APP_API_URL: https://orcr-agad.com
+      REACT_APP_GOOGLE_MAPS_API_KEY: ${GOOGLE_MAPS_API_KEY}
+      REACT_APP_GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
+      REACT_APP_RECAPTCHA_SITE_KEY: ${REACT_APP_RECAPTCHA_SITE_KEY}
     expose:
       - "3000"
     depends_on:
