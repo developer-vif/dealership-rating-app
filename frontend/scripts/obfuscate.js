@@ -65,7 +65,13 @@ const obfuscationOptions = {
   // Prevent breaking reserved words and property names
   reservedStrings: [
     'className', 'style', 'onClick', 'onChange', 'onSubmit', 'value', 'checked', 'disabled',
-    'children', 'props', 'state', 'ref', 'key', 'id', 'type', 'name', 'src', 'href', 'alt'
+    'children', 'props', 'state', 'ref', 'key', 'id', 'type', 'name', 'src', 'href', 'alt',
+    // CSS properties that must not be obfuscated (especially webkit properties)
+    'WebkitLineClamp', 'WebkitBoxOrient', 'webkitLineClamp', 'webkitBoxOrient',
+    'display', 'overflow', 'textOverflow', 'maxWidth', 'minWidth', 'maxHeight', 'minHeight',
+    'flexDirection', 'justifyContent', 'alignItems', 'alignContent', 'flexWrap', 'gap',
+    'margin', 'padding', 'marginTop', 'marginBottom', 'marginLeft', 'marginRight',
+    'paddingTop', 'paddingBottom', 'paddingLeft', 'paddingRight', 'width', 'height'
   ],
   
   // Source map
