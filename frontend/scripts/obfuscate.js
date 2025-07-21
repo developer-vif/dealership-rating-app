@@ -23,12 +23,12 @@ const obfuscationOptions = {
   renameGlobals: false, // Critical: keep false to prevent breaking React/DOM globals
   renameProperties: false, // Critical: prevent breaking React props/state
   
-  // String encryption - minimal to prevent breaking string-based functionality
-  stringArray: true,
-  stringArrayThreshold: 0.3, // Reduced threshold
-  stringArrayEncoding: ['base64'],
-  stringArrayRotate: false, // Disable rotation to prevent issues
-  stringArrayShuffle: false, // Disable shuffling to prevent issues
+  // String encryption - DISABLED to prevent CSP violations (eval-like code)
+  stringArray: false, // Critical: Disable to prevent unsafe-eval CSP violations
+  stringArrayThreshold: 0,
+  stringArrayEncoding: [],
+  stringArrayRotate: false,
+  stringArrayShuffle: false,
   
   // Code transformation - minimal
   transformObjectKeys: false, // Critical: prevent breaking React props/Material-UI

@@ -72,10 +72,6 @@ services:
       - ./.env
     environment:
       NODE_ENV: production
-      REACT_APP_API_URL: https://orcr-agad.com
-      REACT_APP_GOOGLE_MAPS_API_KEY: ${GOOGLE_MAPS_API_KEY}
-      REACT_APP_GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
-      REACT_APP_RECAPTCHA_SITE_KEY: ${REACT_APP_RECAPTCHA_SITE_KEY}
     expose:
       - "3000"
     depends_on:
@@ -83,7 +79,7 @@ services:
     volumes:
       - ./frontend:/app
     # Production build with obfuscation
-    command: sh -c "npm install && npm run build:production-safe && npx serve -s build -l 3000"
+    command: sh -c "npm install && npm run build:production && npx serve -s build -l 3000"
 
   # Nginx reverse proxy
   nginx:
