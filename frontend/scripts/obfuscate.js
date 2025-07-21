@@ -71,7 +71,12 @@ const obfuscationOptions = {
     'display', 'overflow', 'textOverflow', 'maxWidth', 'minWidth', 'maxHeight', 'minHeight',
     'flexDirection', 'justifyContent', 'alignItems', 'alignContent', 'flexWrap', 'gap',
     'margin', 'padding', 'marginTop', 'marginBottom', 'marginLeft', 'marginRight',
-    'paddingTop', 'paddingBottom', 'paddingLeft', 'paddingRight', 'width', 'height'
+    'paddingTop', 'paddingBottom', 'paddingLeft', 'paddingRight', 'width', 'height',
+    // Animation and visual properties that break Chrome layout when obfuscated
+    'transform', 'transition', 'boxShadow', 'cursor', 'fontSize', 'fontWeight',
+    'color', 'backgroundColor', 'borderRadius', 'opacity', 'borderColor', 'objectFit',
+    'lineHeight', 'letterSpacing', 'zIndex', 'position', 'top', 'bottom', 'left', 'right',
+    'border', 'borderWidth', 'borderStyle', 'visibility', 'textAlign', 'verticalAlign'
   ],
   
   // Source map
