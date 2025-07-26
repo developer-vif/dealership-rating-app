@@ -217,7 +217,86 @@ const TermsOfServiceDialog: React.FC<TermsOfServiceDialogProps> = ({ open, onClo
         <Divider sx={{ my: 3 }} />
 
         <Typography variant="h6" component="h3" gutterBottom>
-          5. Contact Information
+          5. Liability Disclaimers and Review Policies
+        </Typography>
+
+        <Typography variant="subtitle1" fontWeight="medium" gutterBottom sx={{ mt: 2 }}>
+          5.1 Limitation of Liability
+        </Typography>
+        <Typography variant="body2" sx={{ mb: 2 }}>
+          ORCR Agad! and its operators disclaim all liability for any consequences, damages, or losses that may arise from:
+        </Typography>
+        <List dense sx={{ mb: 2 }}>
+          <ListItem>
+            <ListItemText primary="The submission, publication, or content of user reviews" primaryTypographyProps={{ variant: 'body2' }} />
+          </ListItem>
+          <ListItem>
+            <ListItemText primary="Actions taken by dealerships or third parties in response to reviews" primaryTypographyProps={{ variant: 'body2' }} />
+          </ListItem>
+          <ListItem>
+            <ListItemText primary="Any disputes arising between reviewers and dealerships" primaryTypographyProps={{ variant: 'body2' }} />
+          </ListItem>
+          <ListItem>
+            <ListItemText primary="Reliance on information contained in user reviews" primaryTypographyProps={{ variant: 'body2' }} />
+          </ListItem>
+          <ListItem>
+            <ListItemText primary="Economic, reputational, or other damages to any party" primaryTypographyProps={{ variant: 'body2' }} />
+          </ListItem>
+        </List>
+
+        <Typography variant="subtitle1" fontWeight="medium" gutterBottom sx={{ mt: 2 }}>
+          5.2 Review Independence Policy
+        </Typography>
+        <Typography variant="body2" sx={{ mb: 2 }}>
+          ORCR Agad! maintains strict independence regarding user reviews:
+        </Typography>
+        <List dense sx={{ mb: 2 }}>
+          <ListItem>
+            <ListItemText primary="We do not solicit, encourage, or compensate users with money or any form of payment in exchange for reviews" primaryTypographyProps={{ variant: 'body2' }} />
+          </ListItem>
+          <ListItem>
+            <ListItemText primary="We do not accept payment from dealerships to influence, modify, or remove reviews" primaryTypographyProps={{ variant: 'body2' }} />
+          </ListItem>
+          <ListItem>
+            <ListItemText primary="Reviews are submitted voluntarily by users based on their genuine experiences" primaryTypographyProps={{ variant: 'body2' }} />
+          </ListItem>
+          <ListItem>
+            <ListItemText primary="All compensation arrangements, if any, are strictly prohibited and will result in review removal" primaryTypographyProps={{ variant: 'body2' }} />
+          </ListItem>
+        </List>
+
+        <Typography variant="subtitle1" fontWeight="medium" gutterBottom sx={{ mt: 2 }}>
+          5.3 Editorial Independence
+        </Typography>
+        <Typography variant="body2" sx={{ mb: 2 }}>
+          User-generated content and opinions expressed in reviews:
+        </Typography>
+        <List dense sx={{ mb: 3 }}>
+          <ListItem>
+            <ListItemText primary="Do not reflect the views, opinions, or positions of ORCR Agad! or its operators" primaryTypographyProps={{ variant: 'body2' }} />
+          </ListItem>
+          <ListItem>
+            <ListItemText primary="Are solely the responsibility and liability of the individual reviewers" primaryTypographyProps={{ variant: 'body2' }} />
+          </ListItem>
+          <ListItem>
+            <ListItemText primary="Should not be considered as endorsements or recommendations by the website" primaryTypographyProps={{ variant: 'body2' }} />
+          </ListItem>
+          <ListItem>
+            <ListItemText primary="May not represent accurate or complete information about any dealership" primaryTypographyProps={{ variant: 'body2' }} />
+          </ListItem>
+        </List>
+
+        <Box sx={{ bgcolor: 'info.light', p: 2, borderRadius: 1, mb: 3 }}>
+          <Typography variant="body2" fontWeight="bold" align="center">
+            IMPORTANT: Users assume full responsibility for their reviews and any consequences thereof. 
+            ORCR Agad! serves solely as a platform and does not endorse or guarantee the accuracy of user-generated content.
+          </Typography>
+        </Box>
+
+        <Divider sx={{ my: 3 }} />
+
+        <Typography variant="h6" component="h3" gutterBottom>
+          6. Contact Information
         </Typography>
 
         <Typography variant="body2" sx={{ mb: 2 }}>
@@ -227,13 +306,13 @@ const TermsOfServiceDialog: React.FC<TermsOfServiceDialogProps> = ({ open, onClo
         <Box sx={{ bgcolor: 'grey.50', p: 2, borderRadius: 1, mb: 3 }}>
           <Typography variant="body2">
             <strong>ORCR Agad!</strong><br />
-            Email: support@orcr-agad.com<br />
+            Email: developer.vif@gmail.com<br />
             Address: Philippines
           </Typography>
         </Box>
 
         <Typography variant="h6" component="h3" gutterBottom>
-          6. Acknowledgment and Consent
+          7. Acknowledgment and Consent
         </Typography>
 
         <Typography variant="body2" sx={{ mb: 2 }}>
