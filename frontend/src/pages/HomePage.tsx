@@ -15,7 +15,7 @@ import {
   CircularProgress,
   Alert
 } from '@mui/material';
-import { Search, LocationOn } from '@mui/icons-material';
+import { Search, LocationOn, Business } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import useGeolocation from '../hooks/useGeolocation';
 import { getCurrentLocationName, formatDistance } from '../utils/locationUtils';
@@ -26,6 +26,7 @@ import DealerDetailsDialog from '../components/dealership/DealerDetailsDialog';
 const HomePage: React.FC = () => {
   const navigate = useNavigate();
   const [searchValue, setSearchValue] = useState('');
+  const [dealershipName, setDealershipName] = useState('');
   const [topRatedDealerships, setTopRatedDealerships] = useState<Dealership[]>([]);
   const [loadingTopRated, setLoadingTopRated] = useState(false);
   const [topRatedError, setTopRatedError] = useState<string | null>(null);
@@ -100,7 +101,23 @@ const HomePage: React.FC = () => {
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
-    navigate(`/dealerships?location=${encodeURIComponent(searchValue)}&radius=10`);
+    
+    // Build URL parameters dynamically
+    const params = new URLSearchParams();
+    if (searchValue.trim()) {
+      params.set('location', searchValue.trim());
+    }
+    if (dealershipName.trim()) {
+      params.set('dealershipName', dealershipName.trim());
+    }
+    params.set('radius', '10');
+    
+    // Require at least one search parameter
+    if (!searchValue.trim() && !dealershipName.trim()) {
+      return; // Don't navigate if both fields are empty
+    }
+    
+    navigate(`/dealerships?${params.toString()}`);
   };
 
   // Dialog event handlers
@@ -166,32 +183,52 @@ const HomePage: React.FC = () => {
             component="form"
             onSubmit={handleSearch}
             sx={{
-              p: 2,
-              display: 'flex',
-              alignItems: 'center',
-              gap: 2,
+              p: 3,
               maxWidth: 600,
               mx: 'auto'
             }}
           >
-            <LocationOn color="action" />
-            <TextField
-              fullWidth
-              variant="outlined"
-              placeholder="Enter city, dealership name, or car brand..."
-              value={searchValue}
-              onChange={(e) => setSearchValue(e.target.value)}
-              size="medium"
-              inputRef={locationInputRef}
-            />
-            <Button
-              type="submit"
-              variant="contained"
-              startIcon={<Search />}
-              sx={{ minWidth: 140 }}
-            >
-              Search
-            </Button>
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+              {/* Location Field */}
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                <LocationOn color="action" />
+                <TextField
+                  fullWidth
+                  variant="outlined"
+                  placeholder="Enter city or location..."
+                  value={searchValue}
+                  onChange={(e) => setSearchValue(e.target.value)}
+                  size="medium"
+                  inputRef={locationInputRef}
+                />
+              </Box>
+              
+              {/* Dealership Name Field */}
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                <Business color="action" />
+                <TextField
+                  fullWidth
+                  variant="outlined"
+                  placeholder="Enter dealership name (optional)..."
+                  value={dealershipName}
+                  onChange={(e) => setDealershipName(e.target.value)}
+                  size="medium"
+                />
+              </Box>
+              
+              {/* Search Button */}
+              <Box sx={{ display: 'flex', justifyContent: 'center', mt: 1 }}>
+                <Button
+                  type="submit"
+                  variant="contained"
+                  startIcon={<Search />}
+                  sx={{ minWidth: 160, py: 1.5 }}
+                  disabled={!searchValue.trim() && !dealershipName.trim()}
+                >
+                  Search Dealerships
+                </Button>
+              </Box>
+            </Box>
           </Paper>
           
         </Container>

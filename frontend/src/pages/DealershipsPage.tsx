@@ -105,12 +105,23 @@ const DealershipsPage: React.FC = () => {
   useEffect(() => {
     const locationParam = searchParams.get('location');
     const radiusParam = searchParams.get('radius');
-    if (locationParam && !initialSearchPerformed) {
-      const urlSearchParams = { 
-        location: locationParam,
+    const dealershipNameParam = searchParams.get('dealershipName');
+    
+    // Allow search with either location or dealership name
+    if ((locationParam || dealershipNameParam) && !initialSearchPerformed) {
+      const urlSearchParams: SearchParams = { 
         radius: radiusParam ? parseInt(radiusParam) : 10
       };
-      setCurrentLocation(locationParam);
+      
+      if (locationParam) {
+        urlSearchParams.location = locationParam;
+        setCurrentLocation(locationParam);
+      }
+      
+      if (dealershipNameParam) {
+        urlSearchParams.dealershipName = dealershipNameParam;
+      }
+      
       handleSearch(urlSearchParams);
       setInitialSearchPerformed(true);
     }
@@ -190,6 +201,7 @@ const DealershipsPage: React.FC = () => {
               onSearch={handleSearch}
               loading={loading}
               initialLocation={currentLocation}
+              initialDealershipName={searchParams.get('dealershipName') || ''}
               currentPosition={position}
             />
             

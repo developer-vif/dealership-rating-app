@@ -30,6 +30,7 @@ interface SearchFormProps {
   onSearch: (params: SearchParams) => void;
   loading?: boolean;
   initialLocation?: string;
+  initialDealershipName?: string;
   currentPosition?: { latitude: number; longitude: number } | null;
 }
 
@@ -81,11 +82,12 @@ const SearchForm: React.FC<SearchFormProps> = ({
   onSearch,
   loading = false,
   initialLocation,
+  initialDealershipName,
   currentPosition,
 }) => {
   const [location, setLocation] = useState(initialLocation || '');
   const [brand, setBrand] = useState('All Brands');
-  const [dealershipName, setDealershipName] = useState('');
+  const [dealershipName, setDealershipName] = useState(initialDealershipName || '');
   const [radius, setRadius] = useState(10);
   const [locationError, setLocationError] = useState<string | null>(null);
   const [isLoadingLocation, setIsLoadingLocation] = useState(false);
@@ -107,6 +109,11 @@ const SearchForm: React.FC<SearchFormProps> = ({
       setLocation(initialLocation);
     }
   }, [initialLocation]);
+
+  // Update dealership name when initialDealershipName prop changes
+  useEffect(() => {
+    setDealershipName(initialDealershipName || '');
+  }, [initialDealershipName]);
 
   // Initialize Google Places Autocomplete
   useEffect(() => {
