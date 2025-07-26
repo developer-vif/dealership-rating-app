@@ -39,19 +39,34 @@ app.use(helmet({
 }));
 
 app.use(cors({
-  origin: [
-    process.env['FRONTEND_URL'] || 'http://localhost',
-    'https://accounts.google.com',
-    'https://orcr-agad.com',
-    'https://www.orcr-agad.com',
-    'http://localhost',
-    'http://localhost:3000',
-    'http://localhost:3003'
-  ],
+  origin: function (origin, callback) {
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) return callback(null, true);
+    
+    const allowedOrigins = [
+      process.env['FRONTEND_URL'] || 'http://localhost',
+      'https://accounts.google.com',
+      'https://orcr-agad.com',
+      'https://www.orcr-agad.com',
+      'http://localhost',
+      'http://localhost:3000',
+      'http://localhost:3003'
+    ];
+    
+    if (allowedOrigins.includes(origin)) {
+      logger.info(`CORS: Allowing origin ${origin}`);
+      return callback(null, true);
+    } else {
+      logger.warn(`CORS: Blocking origin ${origin}`);
+      return callback(new Error('Not allowed by CORS'));
+    }
+  },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Request-ID'],
-  exposedHeaders: ['X-Request-ID']
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Request-ID', 'Accept', 'Origin'],
+  exposedHeaders: ['X-Request-ID'],
+  optionsSuccessStatus: 200, // Some legacy browsers (IE11, various SmartTVs) choke on 204
+  preflightContinue: false // Pass control to the next handler
 }));
 
 // Rate limiting for API endpoints
@@ -80,13 +95,19 @@ app.use(express.urlencoded({ extended: true }));
 // Request logging
 app.use(requestLogger);
 
+// Explicit preflight handler for CORS
+app.options('*', (req, res) => {
+  logger.info(`OPTIONS request from ${req.headers.origin} to ${req.url}`);
+  res.status(200).end();
+});
+
 
 // Routes
 app.use('/health', healthRoutes);
 app.use('/auth', authLimiter, authRoutes);
-app.use('/api/dealerships', dealershipRoutes);
-app.use('/api/reviews', reviewRoutes);
-app.use('/api/admin', limiter, adminRoutes);
+app.use('/dealerships', dealershipRoutes);
+app.use('/reviews', reviewRoutes);
+app.use('/admin', limiter, adminRoutes);
 
 // Error handling
 app.use(notFoundHandler);
